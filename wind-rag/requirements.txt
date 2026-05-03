@@ -1,0 +1,19 @@
+# 核心依赖
+sentence-transformers>=2.3.0
+rank-bm25>=0.2.2
+numpy>=1.24.0
+jieba>=0.42.1
+networkx>=3.0
+python-dotenv>=1.0.0
+tqdm>=4.66.0
+scikit-learn>=1.3.0
+
+# Web界面
+gradio>=4.0.0
+
+# LLM API（可选，不配置则使用模板生成）
+openai>=1.10.0
+
+# 数据处理
+pandas>=2.0.0
+matplotlib>=3.7.0

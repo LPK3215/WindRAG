@@ -1,0 +1,2135 @@
+{
+  "nodes": [
+    {
+      "id": "齿轮箱",
+      "type": "component",
+      "properties": {
+        "description": "传动系统核心部件"
+      }
+    },
+    {
+      "id": "发电机",
+      "type": "component",
+      "properties": {
+        "description": "机械能转换为电能"
+      }
+    },
+    {
+      "id": "叶片",
+      "type": "component",
+      "properties": {
+        "description": "捕获风能"
+      }
+    },
+    {
+      "id": "变桨系统",
+      "type": "component",
+      "properties": {
+        "description": "调节叶片角度"
+      }
+    },
+    {
+      "id": "偏航系统",
+      "type": "component",
+      "properties": {
+        "description": "对准风向"
+      }
+    },
+    {
+      "id": "液压系统",
+      "type": "component",
+      "properties": {
+        "description": "提供液压动力"
+      }
+    },
+    {
+      "id": "制动系统",
+      "type": "component",
+      "properties": {
+        "description": "安全制动"
+      }
+    },
+    {
+      "id": "塔筒",
+      "type": "component",
+      "properties": {
+        "description": "支撑结构"
+      }
+    },
+    {
+      "id": "变压器",
+      "type": "component",
+      "properties": {
+        "description": "电压变换"
+      }
+    },
+    {
+      "id": "齿轮箱_齿轮磨损",
+      "type": "fault_type",
+      "properties": {
+        "name": "齿轮磨损",
+        "severity": "高"
+      }
+    },
+    {
+      "id": "symptom_齿轮箱温",
+      "type": "symptom",
+      "properties": {
+        "name": "齿轮箱温度异常升高，振动增大，噪音异常"
+      }
+    },
+    {
+      "id": "cause_润滑油不",
+      "type": "cause",
+      "properties": {
+        "name": "润滑油不足"
+      }
+    },
+    {
+      "id": "cause_润滑油变",
+      "type": "cause",
+      "properties": {
+        "name": "润滑油变质"
+      }
+    },
+    {
+      "id": "cause_长期过载",
+      "type": "cause",
+      "properties": {
+        "name": "长期过载运行"
+      }
+    },
+    {
+      "id": "cause_齿轮啮合",
+      "type": "cause",
+      "properties": {
+        "name": "齿轮啮合不良"
+      }
+    },
+    {
+      "id": "solution_齿轮箱_齿轮磨损",
+      "type": "solution",
+      "properties": {
+        "description": "立即停机检查，更换润滑油，必要时更换磨损齿轮"
+      }
+    },
+    {
+      "id": "发电机_发电机过热",
+      "type": "fault_type",
+      "properties": {
+        "name": "发电机过热",
+        "severity": "高"
+      }
+    },
+    {
+      "id": "symptom_发电机温",
+      "type": "symptom",
+      "properties": {
+        "name": "发电机温度超过80℃报警，输出功率下降，绝缘材料老化"
+      }
+    },
+    {
+      "id": "cause_冷却系统",
+      "type": "cause",
+      "properties": {
+        "name": "冷却系统故障"
+      }
+    },
+    {
+      "id": "cause_通风不良",
+      "type": "cause",
+      "properties": {
+        "name": "通风不良"
+      }
+    },
+    {
+      "id": "cause_环境温度",
+      "type": "cause",
+      "properties": {
+        "name": "环境温度过高"
+      }
+    },
+    {
+      "id": "solution_发电机_发电机过热",
+      "type": "solution",
+      "properties": {
+        "description": "检查冷却风扇和散热器，清理通风道，降低负荷运行"
+      }
+    },
+    {
+      "id": "变桨系统_变桨轴承卡死",
+      "type": "fault_type",
+      "properties": {
+        "name": "变桨轴承卡死",
+        "severity": "中"
+      }
+    },
+    {
+      "id": "symptom_叶片无法",
+      "type": "symptom",
+      "properties": {
+        "name": "叶片无法正常变桨，变桨角度异常，功率控制失效"
+      }
+    },
+    {
+      "id": "cause_轴承润滑",
+      "type": "cause",
+      "properties": {
+        "name": "轴承润滑不足"
+      }
+    },
+    {
+      "id": "cause_异物进入",
+      "type": "cause",
+      "properties": {
+        "name": "异物进入"
+      }
+    },
+    {
+      "id": "cause_密封失效",
+      "type": "cause",
+      "properties": {
+        "name": "密封失效导致腐蚀"
+      }
+    },
+    {
+      "id": "solution_变桨系统_变桨轴承卡死",
+      "type": "solution",
+      "properties": {
+        "description": "检查并润滑变桨轴承，清理异物，更换损坏的密封件"
+      }
+    },
+    {
+      "id": "偏航系统_偏航偏差过大",
+      "type": "fault_type",
+      "properties": {
+        "name": "偏航偏差过大",
+        "severity": "中"
+      }
+    },
+    {
+      "id": "symptom_机舱与风",
+      "type": "symptom",
+      "properties": {
+        "name": "机舱与风向偏差超过允许范围，发电效率下降"
+      }
+    },
+    {
+      "id": "cause_风向传感",
+      "type": "cause",
+      "properties": {
+        "name": "风向传感器故障"
+      }
+    },
+    {
+      "id": "cause_偏航电机",
+      "type": "cause",
+      "properties": {
+        "name": "偏航电机故障"
+      }
+    },
+    {
+      "id": "cause_偏航制动",
+      "type": "cause",
+      "properties": {
+        "name": "偏航制动器故障"
+      }
+    },
+    {
+      "id": "solution_偏航系统_偏航偏差过大",
+      "type": "solution",
+      "properties": {
+        "description": "校准或更换风向传感器，检修偏航电机和制动器"
+      }
+    },
+    {
+      "id": "叶片_叶片裂纹",
+      "type": "fault_type",
+      "properties": {
+        "name": "叶片裂纹",
+        "severity": "高"
+      }
+    },
+    {
+      "id": "symptom_叶片表面",
+      "type": "symptom",
+      "properties": {
+        "name": "叶片表面出现裂纹，气动性能下降，噪音增大"
+      }
+    },
+    {
+      "id": "cause_材料疲劳",
+      "type": "cause",
+      "properties": {
+        "name": "材料疲劳"
+      }
+    },
+    {
+      "id": "cause_雷击损伤",
+      "type": "cause",
+      "properties": {
+        "name": "雷击损伤"
+      }
+    },
+    {
+      "id": "cause_冰载",
+      "type": "cause",
+      "properties": {
+        "name": "冰载"
+      }
+    },
+    {
+      "id": "cause_异物撞击",
+      "type": "cause",
+      "properties": {
+        "name": "异物撞击"
+      }
+    },
+    {
+      "id": "solution_叶片_叶片裂纹",
+      "type": "solution",
+      "properties": {
+        "description": "小裂纹可修补，严重裂纹需更换叶片"
+      }
+    },
+    {
+      "id": "液压系统_液压油泄漏",
+      "type": "fault_type",
+      "properties": {
+        "name": "液压油泄漏",
+        "severity": "中"
+      }
+    },
+    {
+      "id": "symptom_液压油压",
+      "type": "symptom",
+      "properties": {
+        "name": "液压油压力下降，变桨和制动系统响应迟缓"
+      }
+    },
+    {
+      "id": "cause_密封件老",
+      "type": "cause",
+      "properties": {
+        "name": "密封件老化"
+      }
+    },
+    {
+      "id": "cause_管路损坏",
+      "type": "cause",
+      "properties": {
+        "name": "管路损坏"
+      }
+    },
+    {
+      "id": "cause_接头松动",
+      "type": "cause",
+      "properties": {
+        "name": "接头松动"
+      }
+    },
+    {
+      "id": "solution_液压系统_液压油泄漏",
+      "type": "solution",
+      "properties": {
+        "description": "更换密封件，修复或更换损坏的管路，紧固接头"
+      }
+    },
+    {
+      "id": "控制系统_PLC通信故障",
+      "type": "fault_type",
+      "properties": {
+        "name": "PLC通信故障",
+        "severity": "高"
+      }
+    },
+    {
+      "id": "symptom_控制信号",
+      "type": "symptom",
+      "properties": {
+        "name": "控制信号传输异常，部分功能失效"
+      }
+    },
+    {
+      "id": "cause_通信线路",
+      "type": "cause",
+      "properties": {
+        "name": "通信线路故障"
+      }
+    },
+    {
+      "id": "cause_PLC模",
+      "type": "cause",
+      "properties": {
+        "name": "PLC模块故障"
+      }
+    },
+    {
+      "id": "cause_电磁干扰",
+      "type": "cause",
+      "properties": {
+        "name": "电磁干扰"
+      }
+    },
+    {
+      "id": "solution_控制系统_PLC通信故障",
+      "type": "solution",
+      "properties": {
+        "description": "修复通信线路，更换故障PLC模块，增加屏蔽措施"
+      }
+    },
+    {
+      "id": "变压器_变压器过热",
+      "type": "fault_type",
+      "properties": {
+        "name": "变压器过热",
+        "severity": "高"
+      }
+    },
+    {
+      "id": "symptom_变压器温",
+      "type": "symptom",
+      "properties": {
+        "name": "变压器温度异常升高，油温报警"
+      }
+    },
+    {
+      "id": "cause_过载运行",
+      "type": "cause",
+      "properties": {
+        "name": "过载运行"
+      }
+    },
+    {
+      "id": "cause_绝缘老化",
+      "type": "cause",
+      "properties": {
+        "name": "绝缘老化"
+      }
+    },
+    {
+      "id": "solution_变压器_变压器过热",
+      "type": "solution",
+      "properties": {
+        "description": "降低负载，检查冷却系统，必要时进行绝缘测试"
+      }
+    },
+    {
+      "id": "制动系统_制动器失效",
+      "type": "fault_type",
+      "properties": {
+        "name": "制动器失效",
+        "severity": "高"
+      }
+    },
+    {
+      "id": "symptom_制动响应",
+      "type": "symptom",
+      "properties": {
+        "name": "制动响应迟缓或完全失效"
+      }
+    },
+    {
+      "id": "cause_制动片磨",
+      "type": "cause",
+      "properties": {
+        "name": "制动片磨损"
+      }
+    },
+    {
+      "id": "cause_液压压力",
+      "type": "cause",
+      "properties": {
+        "name": "液压压力不足"
+      }
+    },
+    {
+      "id": "cause_制动器卡",
+      "type": "cause",
+      "properties": {
+        "name": "制动器卡死"
+      }
+    },
+    {
+      "id": "solution_制动系统_制动器失效",
+      "type": "solution",
+      "properties": {
+        "description": "更换磨损制动片，检查液压系统，清理卡死部位"
+      }
+    },
+    {
+      "id": "轴承_主轴承损坏",
+      "type": "fault_type",
+      "properties": {
+        "name": "主轴承损坏",
+        "severity": "高"
+      }
+    },
+    {
+      "id": "symptom_主轴承温",
+      "type": "symptom",
+      "properties": {
+        "name": "主轴承温度升高，振动异常，噪音增大"
+      }
+    },
+    {
+      "id": "cause_润滑不良",
+      "type": "cause",
+      "properties": {
+        "name": "润滑不良"
+      }
+    },
+    {
+      "id": "cause_过载",
+      "type": "cause",
+      "properties": {
+        "name": "过载"
+      }
+    },
+    {
+      "id": "cause_安装不当",
+      "type": "cause",
+      "properties": {
+        "name": "安装不当"
+      }
+    },
+    {
+      "id": "cause_长期疲劳",
+      "type": "cause",
+      "properties": {
+        "name": "长期疲劳"
+      }
+    },
+    {
+      "id": "solution_轴承_主轴承损坏",
+      "type": "solution",
+      "properties": {
+        "description": "更换损坏轴承，检查润滑系统"
+      }
+    },
+    {
+      "id": "叶片_叶片前缘腐蚀",
+      "type": "fault_type",
+      "properties": {
+        "name": "叶片前缘腐蚀",
+        "severity": "中"
+      }
+    },
+    {
+      "id": "symptom_叶片前缘",
+      "type": "symptom",
+      "properties": {
+        "name": "叶片前缘表面粗糙，气动效率下降，功率损失"
+      }
+    },
+    {
+      "id": "cause_雨水侵蚀",
+      "type": "cause",
+      "properties": {
+        "name": "雨水侵蚀"
+      }
+    },
+    {
+      "id": "cause_沙粒磨损",
+      "type": "cause",
+      "properties": {
+        "name": "沙粒磨损"
+      }
+    },
+    {
+      "id": "cause_盐雾腐蚀",
+      "type": "cause",
+      "properties": {
+        "name": "盐雾腐蚀"
+      }
+    },
+    {
+      "id": "solution_叶片_叶片前缘腐蚀",
+      "type": "solution",
+      "properties": {
+        "description": "进行叶片前缘修复处理，涂覆保护涂层"
+      }
+    },
+    {
+      "id": "电气系统_变频器故障",
+      "type": "fault_type",
+      "properties": {
+        "name": "变频器故障",
+        "severity": "高"
+      }
+    },
+    {
+      "id": "symptom_发电机输",
+      "type": "symptom",
+      "properties": {
+        "name": "发电机输出功率波动，变频器报警跳闸"
+      }
+    },
+    {
+      "id": "cause_IGBT",
+      "type": "cause",
+      "properties": {
+        "name": "IGBT模块损坏"
+      }
+    },
+    {
+      "id": "cause_散热不良",
+      "type": "cause",
+      "properties": {
+        "name": "散热不良"
+      }
+    },
+    {
+      "id": "cause_控制板故",
+      "type": "cause",
+      "properties": {
+        "name": "控制板故障"
+      }
+    },
+    {
+      "id": "solution_电气系统_变频器故障",
+      "type": "solution",
+      "properties": {
+        "description": "更换损坏的IGBT模块，清理散热器，检修控制板"
+      }
+    },
+    {
+      "id": "齿轮箱_齿轮断齿",
+      "type": "fault_type",
+      "properties": {
+        "name": "齿轮断齿",
+        "severity": "高"
+      }
+    },
+    {
+      "id": "symptom_齿轮箱剧",
+      "type": "symptom",
+      "properties": {
+        "name": "齿轮箱剧烈振动，金属撞击声，立即停机"
+      }
+    },
+    {
+      "id": "cause_材料缺陷",
+      "type": "cause",
+      "properties": {
+        "name": "材料缺陷"
+      }
+    },
+    {
+      "id": "cause_过载冲击",
+      "type": "cause",
+      "properties": {
+        "name": "过载冲击"
+      }
+    },
+    {
+      "id": "cause_疲劳断裂",
+      "type": "cause",
+      "properties": {
+        "name": "疲劳断裂"
+      }
+    },
+    {
+      "id": "solution_齿轮箱_齿轮断齿",
+      "type": "solution",
+      "properties": {
+        "description": "更换损坏齿轮，检查其他齿轮损伤情况"
+      }
+    },
+    {
+      "id": "变桨系统_变桨电机过热",
+      "type": "fault_type",
+      "properties": {
+        "name": "变桨电机过热",
+        "severity": "中"
+      }
+    },
+    {
+      "id": "symptom_变桨电机",
+      "type": "symptom",
+      "properties": {
+        "name": "变桨电机温度报警，变桨速度下降"
+      }
+    },
+    {
+      "id": "cause_长时间变",
+      "type": "cause",
+      "properties": {
+        "name": "长时间变桨"
+      }
+    },
+    {
+      "id": "cause_电机过载",
+      "type": "cause",
+      "properties": {
+        "name": "电机过载"
+      }
+    },
+    {
+      "id": "solution_变桨系统_变桨电机过热",
+      "type": "solution",
+      "properties": {
+        "description": "降低变桨频率，检查散热系统，必要时更换电机"
+      }
+    },
+    {
+      "id": "偏航系统_偏航电机异响",
+      "type": "fault_type",
+      "properties": {
+        "name": "偏航电机异响",
+        "severity": "低"
+      }
+    },
+    {
+      "id": "symptom_偏航时电",
+      "type": "symptom",
+      "properties": {
+        "name": "偏航时电机发出异常噪音"
+      }
+    },
+    {
+      "id": "cause_电机轴承",
+      "type": "cause",
+      "properties": {
+        "name": "电机轴承磨损"
+      }
+    },
+    {
+      "id": "solution_偏航系统_偏航电机异响",
+      "type": "solution",
+      "properties": {
+        "description": "更换磨损轴承，调整齿轮间隙，清理异物"
+      }
+    },
+    {
+      "id": "液压系统_液压泵故障",
+      "type": "fault_type",
+      "properties": {
+        "name": "液压泵故障",
+        "severity": "中"
+      }
+    },
+    {
+      "id": "symptom_液压压力",
+      "type": "symptom",
+      "properties": {
+        "name": "液压压力不足，泵体过热，噪音异常"
+      }
+    },
+    {
+      "id": "cause_泵体磨损",
+      "type": "cause",
+      "properties": {
+        "name": "泵体磨损"
+      }
+    },
+    {
+      "id": "cause_油液污染",
+      "type": "cause",
+      "properties": {
+        "name": "油液污染"
+      }
+    },
+    {
+      "id": "solution_液压系统_液压泵故障",
+      "type": "solution",
+      "properties": {
+        "description": "更换或维修液压泵，更换液压油，清洗系统"
+      }
+    },
+    {
+      "id": "叶片_叶片结冰",
+      "type": "fault_type",
+      "properties": {
+        "name": "叶片结冰",
+        "severity": "高"
+      }
+    },
+    {
+      "id": "cause_低温高湿",
+      "type": "cause",
+      "properties": {
+        "name": "低温高湿环境，除冰系统故障"
+      }
+    },
+    {
+      "id": "solution_叶片_叶片结冰",
+      "type": "solution",
+      "properties": {
+        "description": "启动除冰系统，必要时停机除冰"
+      }
+    },
+    {
+      "id": "控制系统_传感器漂移",
+      "type": "fault_type",
+      "properties": {
+        "name": "传感器漂移",
+        "severity": "中"
+      }
+    },
+    {
+      "id": "symptom_传感器读",
+      "type": "symptom",
+      "properties": {
+        "name": "传感器读数不准确，控制系统误动作"
+      }
+    },
+    {
+      "id": "cause_传感器老",
+      "type": "cause",
+      "properties": {
+        "name": "传感器老化"
+      }
+    },
+    {
+      "id": "cause_温度影响",
+      "type": "cause",
+      "properties": {
+        "name": "温度影响"
+      }
+    },
+    {
+      "id": "cause_校准失效",
+      "type": "cause",
+      "properties": {
+        "name": "校准失效"
+      }
+    },
+    {
+      "id": "solution_控制系统_传感器漂移",
+      "type": "solution",
+      "properties": {
+        "description": "重新校准传感器，必要时更换"
+      }
+    },
+    {
+      "id": "发电机_绝缘击穿",
+      "type": "fault_type",
+      "properties": {
+        "name": "绝缘击穿",
+        "severity": "高"
+      }
+    },
+    {
+      "id": "symptom_发电机绕",
+      "type": "symptom",
+      "properties": {
+        "name": "发电机绕组短路，保护装置跳闸"
+      }
+    },
+    {
+      "id": "cause_过电压",
+      "type": "cause",
+      "properties": {
+        "name": "过电压"
+      }
+    },
+    {
+      "id": "cause_潮湿环境",
+      "type": "cause",
+      "properties": {
+        "name": "潮湿环境"
+      }
+    },
+    {
+      "id": "solution_发电机_绝缘击穿",
+      "type": "solution",
+      "properties": {
+        "description": "更换损坏绕组，进行绝缘处理"
+      }
+    },
+    {
+      "id": "塔筒_塔筒螺栓松动",
+      "type": "fault_type",
+      "properties": {
+        "name": "塔筒螺栓松动",
+        "severity": "高"
+      }
+    },
+    {
+      "id": "symptom_塔筒振动",
+      "type": "symptom",
+      "properties": {
+        "name": "塔筒振动异常，螺栓连接处有异响"
+      }
+    },
+    {
+      "id": "cause_长期振动",
+      "type": "cause",
+      "properties": {
+        "name": "长期振动"
+      }
+    },
+    {
+      "id": "cause_预紧力不",
+      "type": "cause",
+      "properties": {
+        "name": "预紧力不足"
+      }
+    },
+    {
+      "id": "cause_腐蚀",
+      "type": "cause",
+      "properties": {
+        "name": "腐蚀"
+      }
+    },
+    {
+      "id": "solution_塔筒_塔筒螺栓松动",
+      "type": "solution",
+      "properties": {
+        "description": "重新紧固螺栓，更换腐蚀螺栓"
+      }
+    },
+    {
+      "id": "制动系统_制动盘磨损",
+      "type": "fault_type",
+      "properties": {
+        "name": "制动盘磨损",
+        "severity": "中"
+      }
+    },
+    {
+      "id": "symptom_制动效果",
+      "type": "symptom",
+      "properties": {
+        "name": "制动效果下降，制动距离增加"
+      }
+    },
+    {
+      "id": "cause_频繁制动",
+      "type": "cause",
+      "properties": {
+        "name": "频繁制动"
+      }
+    },
+    {
+      "id": "cause_制动片过",
+      "type": "cause",
+      "properties": {
+        "name": "制动片过硬"
+      }
+    },
+    {
+      "id": "cause_对中不良",
+      "type": "cause",
+      "properties": {
+        "name": "对中不良"
+      }
+    },
+    {
+      "id": "solution_制动系统_制动盘磨损",
+      "type": "solution",
+      "properties": {
+        "description": "车削或更换制动盘，调整制动片"
+      }
+    },
+    {
+      "id": "电气系统_接地故障",
+      "type": "fault_type",
+      "properties": {
+        "name": "接地故障",
+        "severity": "高"
+      }
+    },
+    {
+      "id": "symptom_漏电保护",
+      "type": "symptom",
+      "properties": {
+        "name": "漏电保护跳闸，设备外壳带电"
+      }
+    },
+    {
+      "id": "cause_绝缘损坏",
+      "type": "cause",
+      "properties": {
+        "name": "绝缘损坏"
+      }
+    },
+    {
+      "id": "cause_线路老化",
+      "type": "cause",
+      "properties": {
+        "name": "线路老化"
+      }
+    },
+    {
+      "id": "cause_接地不良",
+      "type": "cause",
+      "properties": {
+        "name": "接地不良"
+      }
+    },
+    {
+      "id": "solution_电气系统_接地故障",
+      "type": "solution",
+      "properties": {
+        "description": "修复绝缘，更换老化线路，改善接地"
+      }
+    },
+    {
+      "id": "齿轮箱_油封泄漏",
+      "type": "fault_type",
+      "properties": {
+        "name": "油封泄漏",
+        "severity": "低"
+      }
+    },
+    {
+      "id": "symptom_润滑油泄",
+      "type": "symptom",
+      "properties": {
+        "name": "润滑油泄漏，油位下降"
+      }
+    },
+    {
+      "id": "cause_油封老化",
+      "type": "cause",
+      "properties": {
+        "name": "油封老化"
+      }
+    },
+    {
+      "id": "cause_密封面损",
+      "type": "cause",
+      "properties": {
+        "name": "密封面损坏"
+      }
+    },
+    {
+      "id": "cause_压力过高",
+      "type": "cause",
+      "properties": {
+        "name": "压力过高"
+      }
+    },
+    {
+      "id": "solution_齿轮箱_油封泄漏",
+      "type": "solution",
+      "properties": {
+        "description": "更换油封，检查密封面，调整油压"
+      }
+    },
+    {
+      "id": "叶片_叶片表面凹陷",
+      "type": "fault_type",
+      "properties": {
+        "name": "叶片表面凹陷",
+        "severity": "中"
+      }
+    },
+    {
+      "id": "cause_冰雹撞击",
+      "type": "cause",
+      "properties": {
+        "name": "冰雹撞击"
+      }
+    },
+    {
+      "id": "cause_鸟类撞击",
+      "type": "cause",
+      "properties": {
+        "name": "鸟类撞击"
+      }
+    },
+    {
+      "id": "cause_异物打击",
+      "type": "cause",
+      "properties": {
+        "name": "异物打击"
+      }
+    },
+    {
+      "id": "solution_叶片_叶片表面凹陷",
+      "type": "solution",
+      "properties": {
+        "description": "小凹陷可修复，严重凹陷需更换叶片"
+      }
+    },
+    {
+      "id": "变压器_绝缘油老化",
+      "type": "fault_type",
+      "properties": {
+        "name": "绝缘油老化",
+        "severity": "中"
+      }
+    },
+    {
+      "id": "symptom_绝缘油性",
+      "type": "symptom",
+      "properties": {
+        "name": "绝缘油性能下降，介损增大"
+      }
+    },
+    {
+      "id": "cause_长期运行",
+      "type": "cause",
+      "properties": {
+        "name": "长期运行"
+      }
+    },
+    {
+      "id": "cause_温度过高",
+      "type": "cause",
+      "properties": {
+        "name": "温度过高"
+      }
+    },
+    {
+      "id": "cause_氧化",
+      "type": "cause",
+      "properties": {
+        "name": "氧化"
+      }
+    },
+    {
+      "id": "solution_变压器_绝缘油老化",
+      "type": "solution",
+      "properties": {
+        "description": "更换绝缘油，进行滤油处理"
+      }
+    },
+    {
+      "id": "op_OM001",
+      "type": "maintenance_operation",
+      "properties": {
+        "title": "风电机组日常巡检规程",
+        "category": "日常巡检"
+      }
+    },
+    {
+      "id": "op_OM002",
+      "type": "maintenance_operation",
+      "properties": {
+        "title": "风电机组定期维护周期表",
+        "category": "维护计划"
+      }
+    },
+    {
+      "id": "op_OM003",
+      "type": "maintenance_operation",
+      "properties": {
+        "title": "齿轮箱维护操作规程",
+        "category": "部件维护"
+      }
+    },
+    {
+      "id": "op_OM004",
+      "type": "maintenance_operation",
+      "properties": {
+        "title": "发电机维护操作规程",
+        "category": "部件维护"
+      }
+    },
+    {
+      "id": "op_OM005",
+      "type": "maintenance_operation",
+      "properties": {
+        "title": "变桨系统维护操作规程",
+        "category": "部件维护"
+      }
+    },
+    {
+      "id": "op_OM006",
+      "type": "maintenance_operation",
+      "properties": {
+        "title": "偏航系统维护操作规程",
+        "category": "部件维护"
+      }
+    },
+    {
+      "id": "op_OM007",
+      "type": "maintenance_operation",
+      "properties": {
+        "title": "液压系统维护操作规程",
+        "category": "部件维护"
+      }
+    },
+    {
+      "id": "op_OM008",
+      "type": "maintenance_operation",
+      "properties": {
+        "title": "叶片维护操作规程",
+        "category": "部件维护"
+      }
+    },
+    {
+      "id": "op_OM009",
+      "type": "maintenance_operation",
+      "properties": {
+        "title": "制动系统维护操作规程",
+        "category": "部件维护"
+      }
+    },
+    {
+      "id": "op_OM010",
+      "type": "maintenance_operation",
+      "properties": {
+        "title": "电气系统维护操作规程",
+        "category": "部件维护"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "齿轮箱",
+      "target": "齿轮箱_齿轮磨损",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱",
+      "target": "齿轮箱_齿轮断齿",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱",
+      "target": "齿轮箱_油封泄漏",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱",
+      "target": "op_OM003",
+      "relation": "REQUIRES",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_齿轮磨损",
+      "target": "symptom_齿轮箱温",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_齿轮磨损",
+      "target": "cause_润滑油不",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_齿轮磨损",
+      "target": "cause_润滑油变",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_齿轮磨损",
+      "target": "cause_长期过载",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_齿轮磨损",
+      "target": "cause_齿轮啮合",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_齿轮磨损",
+      "target": "solution_齿轮箱_齿轮磨损",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "发电机",
+      "target": "发电机_发电机过热",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "发电机",
+      "target": "发电机_绝缘击穿",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "发电机",
+      "target": "op_OM004",
+      "relation": "REQUIRES",
+      "properties": {}
+    },
+    {
+      "source": "发电机",
+      "target": "op_OM010",
+      "relation": "REQUIRES",
+      "properties": {}
+    },
+    {
+      "source": "发电机_发电机过热",
+      "target": "symptom_发电机温",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "发电机_发电机过热",
+      "target": "cause_冷却系统",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "发电机_发电机过热",
+      "target": "cause_通风不良",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "发电机_发电机过热",
+      "target": "cause_长期过载",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "发电机_发电机过热",
+      "target": "cause_环境温度",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "发电机_发电机过热",
+      "target": "solution_发电机_发电机过热",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变桨系统",
+      "target": "变桨系统_变桨轴承卡死",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "变桨系统",
+      "target": "变桨系统_变桨电机过热",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "变桨系统",
+      "target": "op_OM005",
+      "relation": "REQUIRES",
+      "properties": {}
+    },
+    {
+      "source": "变桨系统_变桨轴承卡死",
+      "target": "symptom_叶片无法",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "变桨系统_变桨轴承卡死",
+      "target": "cause_轴承润滑",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变桨系统_变桨轴承卡死",
+      "target": "cause_异物进入",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变桨系统_变桨轴承卡死",
+      "target": "cause_密封失效",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变桨系统_变桨轴承卡死",
+      "target": "solution_变桨系统_变桨轴承卡死",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "偏航系统",
+      "target": "偏航系统_偏航偏差过大",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "偏航系统",
+      "target": "偏航系统_偏航电机异响",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "偏航系统",
+      "target": "op_OM006",
+      "relation": "REQUIRES",
+      "properties": {}
+    },
+    {
+      "source": "偏航系统_偏航偏差过大",
+      "target": "symptom_机舱与风",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "偏航系统_偏航偏差过大",
+      "target": "cause_风向传感",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "偏航系统_偏航偏差过大",
+      "target": "cause_偏航电机",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "偏航系统_偏航偏差过大",
+      "target": "cause_偏航制动",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "偏航系统_偏航偏差过大",
+      "target": "solution_偏航系统_偏航偏差过大",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片",
+      "target": "叶片_叶片裂纹",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "叶片",
+      "target": "叶片_叶片前缘腐蚀",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "叶片",
+      "target": "叶片_叶片结冰",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "叶片",
+      "target": "叶片_叶片表面凹陷",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "叶片",
+      "target": "op_OM008",
+      "relation": "REQUIRES",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片裂纹",
+      "target": "symptom_叶片表面",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片裂纹",
+      "target": "cause_材料疲劳",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片裂纹",
+      "target": "cause_雷击损伤",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片裂纹",
+      "target": "cause_冰载",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片裂纹",
+      "target": "cause_异物撞击",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片裂纹",
+      "target": "solution_叶片_叶片裂纹",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "液压系统",
+      "target": "液压系统_液压油泄漏",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "液压系统",
+      "target": "液压系统_液压泵故障",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "液压系统",
+      "target": "op_OM007",
+      "relation": "REQUIRES",
+      "properties": {}
+    },
+    {
+      "source": "液压系统_液压油泄漏",
+      "target": "symptom_液压油压",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "液压系统_液压油泄漏",
+      "target": "cause_密封件老",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "液压系统_液压油泄漏",
+      "target": "cause_管路损坏",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "液压系统_液压油泄漏",
+      "target": "cause_接头松动",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "液压系统_液压油泄漏",
+      "target": "solution_液压系统_液压油泄漏",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "控制系统",
+      "target": "控制系统_PLC通信故障",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "控制系统",
+      "target": "控制系统_传感器漂移",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "控制系统_PLC通信故障",
+      "target": "symptom_控制信号",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "控制系统_PLC通信故障",
+      "target": "cause_通信线路",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "控制系统_PLC通信故障",
+      "target": "cause_PLC模",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "控制系统_PLC通信故障",
+      "target": "cause_电磁干扰",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "控制系统_PLC通信故障",
+      "target": "solution_控制系统_PLC通信故障",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变压器",
+      "target": "变压器_变压器过热",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "变压器",
+      "target": "变压器_绝缘油老化",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "变压器_变压器过热",
+      "target": "symptom_变压器温",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "变压器_变压器过热",
+      "target": "cause_过载运行",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变压器_变压器过热",
+      "target": "cause_冷却系统",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变压器_变压器过热",
+      "target": "cause_绝缘老化",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变压器_变压器过热",
+      "target": "solution_变压器_变压器过热",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "制动系统",
+      "target": "制动系统_制动器失效",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "制动系统",
+      "target": "制动系统_制动盘磨损",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "制动系统",
+      "target": "op_OM009",
+      "relation": "REQUIRES",
+      "properties": {}
+    },
+    {
+      "source": "制动系统_制动器失效",
+      "target": "symptom_制动响应",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "制动系统_制动器失效",
+      "target": "cause_制动片磨",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "制动系统_制动器失效",
+      "target": "cause_液压压力",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "制动系统_制动器失效",
+      "target": "cause_制动器卡",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "制动系统_制动器失效",
+      "target": "solution_制动系统_制动器失效",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "轴承",
+      "target": "轴承_主轴承损坏",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "轴承_主轴承损坏",
+      "target": "symptom_主轴承温",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "轴承_主轴承损坏",
+      "target": "cause_润滑不良",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "轴承_主轴承损坏",
+      "target": "cause_过载",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "轴承_主轴承损坏",
+      "target": "cause_安装不当",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "轴承_主轴承损坏",
+      "target": "cause_长期疲劳",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "轴承_主轴承损坏",
+      "target": "solution_轴承_主轴承损坏",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片前缘腐蚀",
+      "target": "symptom_叶片前缘",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片前缘腐蚀",
+      "target": "cause_雨水侵蚀",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片前缘腐蚀",
+      "target": "cause_沙粒磨损",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片前缘腐蚀",
+      "target": "cause_盐雾腐蚀",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片前缘腐蚀",
+      "target": "solution_叶片_叶片前缘腐蚀",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "电气系统",
+      "target": "电气系统_变频器故障",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "电气系统",
+      "target": "电气系统_接地故障",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "电气系统_变频器故障",
+      "target": "symptom_发电机输",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "电气系统_变频器故障",
+      "target": "cause_IGBT",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "电气系统_变频器故障",
+      "target": "cause_散热不良",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "电气系统_变频器故障",
+      "target": "cause_控制板故",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "电气系统_变频器故障",
+      "target": "solution_电气系统_变频器故障",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_齿轮断齿",
+      "target": "symptom_齿轮箱剧",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_齿轮断齿",
+      "target": "cause_材料缺陷",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_齿轮断齿",
+      "target": "cause_过载冲击",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_齿轮断齿",
+      "target": "cause_疲劳断裂",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_齿轮断齿",
+      "target": "solution_齿轮箱_齿轮断齿",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变桨系统_变桨电机过热",
+      "target": "symptom_变桨电机",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "变桨系统_变桨电机过热",
+      "target": "cause_长时间变",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变桨系统_变桨电机过热",
+      "target": "cause_散热不良",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变桨系统_变桨电机过热",
+      "target": "cause_电机过载",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变桨系统_变桨电机过热",
+      "target": "solution_变桨系统_变桨电机过热",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "偏航系统_偏航电机异响",
+      "target": "symptom_偏航时电",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "偏航系统_偏航电机异响",
+      "target": "cause_电机轴承",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "偏航系统_偏航电机异响",
+      "target": "cause_齿轮啮合",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "偏航系统_偏航电机异响",
+      "target": "cause_异物进入",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "偏航系统_偏航电机异响",
+      "target": "solution_偏航系统_偏航电机异响",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "液压系统_液压泵故障",
+      "target": "symptom_液压压力",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "液压系统_液压泵故障",
+      "target": "cause_泵体磨损",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "液压系统_液压泵故障",
+      "target": "cause_密封失效",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "液压系统_液压泵故障",
+      "target": "cause_油液污染",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "液压系统_液压泵故障",
+      "target": "solution_液压系统_液压泵故障",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片结冰",
+      "target": "symptom_叶片表面",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片结冰",
+      "target": "cause_低温高湿",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片结冰",
+      "target": "solution_叶片_叶片结冰",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "控制系统_传感器漂移",
+      "target": "symptom_传感器读",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "控制系统_传感器漂移",
+      "target": "cause_传感器老",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "控制系统_传感器漂移",
+      "target": "cause_温度影响",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "控制系统_传感器漂移",
+      "target": "cause_校准失效",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "控制系统_传感器漂移",
+      "target": "solution_控制系统_传感器漂移",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "发电机_绝缘击穿",
+      "target": "symptom_发电机绕",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "发电机_绝缘击穿",
+      "target": "cause_绝缘老化",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "发电机_绝缘击穿",
+      "target": "cause_过电压",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "发电机_绝缘击穿",
+      "target": "cause_潮湿环境",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "发电机_绝缘击穿",
+      "target": "solution_发电机_绝缘击穿",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "塔筒",
+      "target": "塔筒_塔筒螺栓松动",
+      "relation": "HAS_FAULT",
+      "properties": {}
+    },
+    {
+      "source": "塔筒_塔筒螺栓松动",
+      "target": "symptom_塔筒振动",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "塔筒_塔筒螺栓松动",
+      "target": "cause_长期振动",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "塔筒_塔筒螺栓松动",
+      "target": "cause_预紧力不",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "塔筒_塔筒螺栓松动",
+      "target": "cause_腐蚀",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "塔筒_塔筒螺栓松动",
+      "target": "solution_塔筒_塔筒螺栓松动",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "制动系统_制动盘磨损",
+      "target": "symptom_制动效果",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "制动系统_制动盘磨损",
+      "target": "cause_频繁制动",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "制动系统_制动盘磨损",
+      "target": "cause_制动片过",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "制动系统_制动盘磨损",
+      "target": "cause_对中不良",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "制动系统_制动盘磨损",
+      "target": "solution_制动系统_制动盘磨损",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "电气系统_接地故障",
+      "target": "symptom_漏电保护",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "电气系统_接地故障",
+      "target": "cause_绝缘损坏",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "电气系统_接地故障",
+      "target": "cause_线路老化",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "电气系统_接地故障",
+      "target": "cause_接地不良",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "电气系统_接地故障",
+      "target": "solution_电气系统_接地故障",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_油封泄漏",
+      "target": "symptom_润滑油泄",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_油封泄漏",
+      "target": "cause_油封老化",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_油封泄漏",
+      "target": "cause_密封面损",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_油封泄漏",
+      "target": "cause_压力过高",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "齿轮箱_油封泄漏",
+      "target": "solution_齿轮箱_油封泄漏",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片表面凹陷",
+      "target": "symptom_叶片表面",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片表面凹陷",
+      "target": "cause_冰雹撞击",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片表面凹陷",
+      "target": "cause_鸟类撞击",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片表面凹陷",
+      "target": "cause_异物打击",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "叶片_叶片表面凹陷",
+      "target": "solution_叶片_叶片表面凹陷",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变压器_绝缘油老化",
+      "target": "symptom_绝缘油性",
+      "relation": "HAS_SYMPTOM",
+      "properties": {}
+    },
+    {
+      "source": "变压器_绝缘油老化",
+      "target": "cause_长期运行",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变压器_绝缘油老化",
+      "target": "cause_温度过高",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变压器_绝缘油老化",
+      "target": "cause_氧化",
+      "relation": "CAUSED_BY",
+      "properties": {}
+    },
+    {
+      "source": "变压器_绝缘油老化",
+      "target": "solution_变压器_绝缘油老化",
+      "relation": "SOLVED_BY",
+      "properties": {}
+    }
+  ]
+}
