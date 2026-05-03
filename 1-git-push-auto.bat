@@ -10,7 +10,7 @@ title Git Push - 万能推送脚本
 REM ========================================
 REM   默认配置区（可根据需要修改）
 REM ========================================
-set DEFAULT_REPO=https://github.com/LPK3215/offline-model-routing.git
+set DEFAULT_REPO=https://github.com/LPK3215/WindRAG.git
 set DEFAULT_EMAIL=17538703215@163.com
 set DEFAULT_NAME=LPK3215
 set DEFAULT_BRANCH=main
