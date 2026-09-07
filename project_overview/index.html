@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WindRAG — 项目全景观览</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="scroll-progress"></div>
+  <nav class="navbar">
+    <div class="nav-brand">🌬️ WindRAG</div>
+    <div class="nav-links">
+      <a href="#hero" class="nav-link active">概览</a>
+      <a href="#intro" class="nav-link">简介</a>
+      <a href="#architecture" class="nav-link">架构</a>
+      <a href="#tech-stack" class="nav-link">技术栈</a>
+      <a href="#structure" class="nav-link">目录结构</a>
+      <a href="#quickstart" class="nav-link">快速开始</a>
+      <a href="#docs" class="nav-link">文档索引</a>
+    </div>
+    <button class="theme-toggle" id="themeToggle" title="切换主题">🌙</button>
+  </nav>
+
+  <section id="hero" class="hero">
+    <div class="hero-content">
+      <div class="hero-badges">
+        <span class="badge">风电诊断</span>
+        <span class="badge">RAG</span>
+        <span class="badge">知识图谱</span>
+        <span class="badge">混合检索</span>
+      </div>
+      <h1 class="hero-title">🌬️ WindRAG</h1>
+      <p class="hero-subtitle">风电领域智能诊断问答系统 — 基于多策略混合检索与知识图谱增强的 RAG</p>
+      <div class="hero-meta">
+        <span class="meta-item">v1.0.0</span>
+        <span class="meta-divider">·</span>
+        <span class="meta-item">Python 3.10+</span>
+        <span class="meta-divider">·</span>
+        <span class="meta-item">jieba + BM25</span>
+        <span class="meta-divider">·</span>
+        <span class="meta-item">知识图谱</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="intro" class="section">
+    <h2 class="section-title">项目简介</h2>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🎯</div>
+        <h3>核心价值</h3>
+        <p>面向风力发电领域的智能故障诊断问答系统，采用 RAG 架构，融合向量语义检索、BM25 关键词检索和知识图谱结构检索三种策略。</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">💡</div>
+        <h3>核心特性</h3>
+        <ul class="feature-list">
+          <li>自适应混合检索（动态调整融合权重）</li>
+          <li>知识图谱增强（embedding 语义匹配）</li>
+          <li>模型池管理（多 LLM 自动切换）</li>
+          <li>中文深度优化（jieba + 领域术语）</li>
+          <li>高鲁棒性设计</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="architecture" class="section">
+    <h2 class="section-title">架构全景</h2>
+    <div class="arch-container">
+      <svg viewBox="0 0 1000 420" class="arch-svg" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#4f46e5"/><stop offset="100%" style="stop-color:#7c3aed"/></linearGradient>
+          <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#059669"/><stop offset="100%" style="stop-color:#0d9488"/></linearGradient>
+          <linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#d97706"/><stop offset="100%" style="stop-color:#ea580c"/></linearGradient>
+          <linearGradient id="g4" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#6b7280"/><stop offset="100%" style="stop-color:#4b5563"/></linearGradient>
+        </defs>
+
+        <!-- 数据层 -->
+        <rect x="50" y="20" width="900" height="80" rx="12" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+        <text x="70" y="42" fill="#94a3b8" font-size="13" font-family="Inter">数据层</text>
+        <rect x="70" y="50" width="200" height="40" rx="8" fill="url(#g4)" opacity="0.8"/>
+        <text x="170" y="75" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">故障案例</text>
+        <rect x="290" y="50" width="200" height="40" rx="8" fill="url(#g4)" opacity="0.8"/>
+        <text x="390" y="75" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">技术文档</text>
+        <rect x="510" y="50" width="200" height="40" rx="8" fill="url(#g4)" opacity="0.8"/>
+        <text x="610" y="75" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">运维手册</text>
+        <rect x="730" y="50" width="150" height="40" rx="8" fill="url(#g4)" opacity="0.8"/>
+        <text x="805" y="75" fill="#fff" font-size="11" font-weight="600" text-anchor="middle">问答对</text>
+
+        <line x1="500" y1="100" x2="500" y2="120" stroke="#475569" stroke-width="2" stroke-dasharray="5,3"/>
+
+        <!-- 索引层 -->
+        <rect x="50" y="120" width="900" height="80" rx="12" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+        <text x="70" y="142" fill="#94a3b8" font-size="13" font-family="Inter">索引层 — 三种互补索引</text>
+        <rect x="70" y="150" width="260" height="40" rx="8" fill="url(#g1)" opacity="0.85"/>
+        <text x="200" y="175" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">向量索引</text>
+        <rect x="350" y="150" width="250" height="40" rx="8" fill="url(#g1)" opacity="0.85"/>
+        <text x="475" y="175" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">BM25 索引</text>
+        <rect x="620" y="150" width="260" height="40" rx="8" fill="url(#g1)" opacity="0.85"/>
+        <text x="750" y="175" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">知识图谱</text>
+
+        <line x1="500" y1="200" x2="500" y2="220" stroke="#475569" stroke-width="2" stroke-dasharray="5,3"/>
+
+        <!-- 检索层 -->
+        <rect x="50" y="220" width="900" height="80" rx="12" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+        <text x="70" y="242" fill="#94a3b8" font-size="13" font-family="Inter">检索层 — 多策略融合</text>
+        <rect x="70" y="250" width="260" height="40" rx="8" fill="url(#g2)" opacity="0.85"/>
+        <text x="200" y="275" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">自适应 α 融合</text>
+        <rect x="350" y="250" width="250" height="40" rx="8" fill="url(#g2)" opacity="0.85"/>
+        <text x="475" y="275" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">语义重排序</text>
+        <rect x="620" y="250" width="260" height="40" rx="8" fill="url(#g2)" opacity="0.85"/>
+        <text x="750" y="275" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">图谱增强</text>
+
+        <line x1="500" y1="300" x2="500" y2="320" stroke="#475569" stroke-width="2" stroke-dasharray="5,3"/>
+
+        <!-- 生成层 -->
+        <rect x="50" y="320" width="900" height="80" rx="12" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+        <text x="70" y="342" fill="#94a3b8" font-size="13" font-family="Inter">生成层 — 鲁棒答案生成</text>
+        <rect x="70" y="350" width="260" height="40" rx="8" fill="url(#g3)" opacity="0.85"/>
+        <text x="200" y="375" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">模型池管理</text>
+        <rect x="350" y="350" width="250" height="40" rx="8" fill="url(#g3)" opacity="0.85"/>
+        <text x="475" y="375" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">LLM 生成</text>
+        <rect x="620" y="350" width="260" height="40" rx="8" fill="url(#g3)" opacity="0.85"/>
+        <text x="750" y="375" fill="#fff" font-size="12" font-weight="600" text-anchor="middle">模板降级</text>
+      </svg>
+    </div>
+  </section>
+
+  <section id="tech-stack" class="section">
+    <h2 class="section-title">技术栈</h2>
+    <div class="tech-grid">
+      <div class="tech-category">
+        <h3>核心</h3>
+        <div class="tech-tags">
+          <span class="tech-tag">Python 3.10+</span>
+          <span class="tech-tag">RAG</span>
+        </div>
+      </div>
+      <div class="tech-category">
+        <h3>检索</h3>
+        <div class="tech-tags">
+          <span class="tech-tag">向量检索</span>
+          <span class="tech-tag">BM25</span>
+          <span class="tech-tag">知识图谱</span>
+          <span class="tech-tag">jieba 分词</span>
+        </div>
+      </div>
+      <div class="tech-category">
+        <h3>生成</h3>
+        <div class="tech-tags">
+          <span class="tech-tag">多 LLM 模型池</span>
+          <span class="tech-tag">ModelScope</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="structure" class="section">
+    <h2 class="section-title">目录结构</h2>
+    <div class="tree-container">
+      <details open class="tree-node">
+        <summary>📁 WindRAG/</summary>
+        <div class="tree-children">
+          <div class="tree-leaf">📁 src/ — 核心源代码</div>
+          <div class="tree-leaf">📁 data/ — 数据集</div>
+          <div class="tree-leaf">📁 docs/ — 文档与架构图</div>
+          <div class="tree-leaf">📁 paper/ — 论文相关</div>
+          <div class="tree-leaf">📄 requirements.txt</div>
+          <div class="tree-leaf">📄 Dockerfile</div>
+          <div class="tree-leaf">📄 docker-compose.yml</div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section id="quickstart" class="section">
+    <h2 class="section-title">快速开始</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <div>
+          <h3>安装依赖</h3>
+          <div class="code-block"><span class="code-lang">bash</span><pre><code>pip install -r requirements.txt</code></pre></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div>
+          <h3>配置</h3>
+          <div class="code-block"><span class="code-lang">bash</span><pre><code>cp config.env.example config.env
+# 编辑 config.env 填入 API Key</code></pre></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div>
+          <h3>Docker 启动</h3>
+          <div class="code-block"><span class="code-lang">bash</span><pre><code>docker compose up -d --build</code></pre></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="docs" class="section">
+    <h2 class="section-title">文档索引</h2>
+    <div class="doc-list">
+      <a href="./README.md" class="doc-link">📄 README.md — 项目说明</a>
+      <a href="./CONTRIBUTING.md" class="doc-link">📄 CONTRIBUTING.md — 贡献指南</a>
+      <a href="./CHANGELOG.md" class="doc-link">📄 CHANGELOG.md — 更新日志</a>
+      <a href="./LICENSE" class="doc-link">📄 LICENSE — MIT 许可证</a>
+      <a href="./CODE_REVIEW.md" class="doc-link">📄 CODE_REVIEW.md — 代码审查</a>
+      <a href="./MODELSCOPE_SETUP.md" class="doc-link">📄 MODELSCOPE_SETUP.md — ModelScope 配置</a>
+    </div>
+  </section>
+
+  <section class="section license-section">
+    <h2 class="section-title">许可证</h2>
+    <p>本项目基于 <a href="https://opensource.org/licenses/MIT" target="_blank">MIT License</a> 开源。© 2026 LPK3215</p>
+  </section>
+
+  <button id="backToTop" class="back-to-top" title="返回顶部">↑</button>
+  <footer class="footer"><p>Generated on 2026-09-08 · WindRAG v1.0.0</p></footer>
+  <script src="./script.js"></script>
+</body>
+</html>
