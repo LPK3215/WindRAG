@@ -13,7 +13,7 @@ import urllib.error
 import urllib.request
 from typing import Callable, Dict, List, Optional
 
-from pure_rag.text_utils import Tokenizer, expand_query, split_sentences
+from pure_rag.text_utils import Tokenizer, expand_query, split_sentences_with_offsets
 
 # 结构化字段前缀：命中这些标签的句子更可能是"答案句"
 KEY_LABELS = ("解决方案", "答案", "处理", "原因", "诊断", "预防", "症状", "步骤", "结论", "建议")
@@ -38,6 +38,53 @@ SYSTEM_PROMPT = (
     "你是风电领域的运维专家助手。请严格依据给定的参考资料回答问题，"
     "用简洁专业的中文作答；资料中没有的内容不要编造，并说明信息不足。"
 )
+
+# 故障案例的结构化字段（由 data_processing 的格式化模板产出，每行一个「字段：值」）
+FAULT_LABELS = ("故障ID", "部件", "故障类型", "症状", "原因", "诊断",
+                "解决方案", "预防措施", "严重程度")
+CARD_LABELS = ("症状", "原因", "诊断", "解决方案", "预防措施")
+
+
+def parse_fault_cases(content: str) -> List[Dict[str, str]]:
+    """
+    从文本中解析故障案例（一个分块里可能正好装下多个案例）
+
+    只保留字段数足够多的块，避免把普通文档里恰好出现的「原因：」误判成案例。
+    """
+    cases, current = [], {}
+    for line in content.splitlines():
+        for label in FAULT_LABELS:
+            prefix = f"{label}："
+            if line.startswith(prefix):
+                if label == "故障ID" and current:
+                    cases.append(current)
+                    current = {}
+                current[label] = line[len(prefix):].strip()
+                break
+    if current:
+        cases.append(current)
+    return [case for case in cases if len(case) >= 4]
+
+
+def build_fault_card(documents: List[Dict]) -> Optional[Dict]:
+    """取排序最靠前的故障案例，整理成结构化卡片（症状/原因/诊断/解决方案/预防措施）"""
+    for document in documents:
+        cases = parse_fault_cases(document.get("content", ""))
+        if not cases:
+            continue
+        case = cases[0]
+        component = case.get("部件", "")
+        fault_type = case.get("故障类型", "")
+        return {
+            "title": " · ".join(part for part in (component, fault_type) if part) or "故障案例",
+            "component": component,
+            "fault_type": fault_type,
+            "severity": case.get("严重程度", ""),
+            "doc_id": document.get("doc_id"),
+            "fields": [{"label": label, "value": case[label]}
+                       for label in CARD_LABELS if case.get(label)],
+        }
+    return None
 
 
 class LLMClient:
@@ -114,47 +161,58 @@ class AnswerGenerator:
     def generate(self, question: str, documents: List[Dict], kg_context: str = "",
                  idf_lookup: Callable[[str], float] = None) -> Dict:
         """
-        返回 {"answer": 文本, "mode": "llm"|"extractive"|"empty", "citations": [...]}
+        返回：
+            answer    答案文本
+            mode      llm | extractive | empty
+            citations 来源条目（编号/来源/标题/分数）
+            claims    抽取式要点，每条带 doc_id 与在原文中的字符区间，可跳转定位
+            card      故障结构化卡片（检索到故障案例时才有）
         """
         if not documents and not kg_context:
             return {
                 "answer": "知识库中没有检索到相关内容，请尝试换个说法或补充具体部件名称。",
                 "mode": "empty",
                 "citations": [],
+                "claims": [],
+                "card": None,
             }
 
         documents = self._filter_by_score(documents)
+        card = build_fault_card(documents)
         if self.llm_client and self.llm_client.available:
             answer = self.llm_client.chat(self._build_prompt(question, documents, kg_context))
             if answer:
                 return {"answer": answer, "mode": "llm",
-                        "citations": self._citations(documents)}
+                        "citations": self._citations(documents),
+                        "claims": [], "card": card}
 
-        return self._extractive(question, documents, kg_context, idf_lookup)
+        return self._extractive(question, documents, kg_context, idf_lookup, card)
 
     # -- 抽取式生成 ---------------------------------------------------------
     def _extractive(self, question: str, documents: List[Dict], kg_context: str,
-                    idf_lookup: Callable[[str], float] = None) -> Dict:
+                    idf_lookup: Callable[[str], float] = None, card: Dict = None) -> Dict:
         idf_lookup = idf_lookup or (lambda _term: 1.0)
         # 打分词表包含同义词扩展结果，保证"变速箱"能匹配到"齿轮箱"的句子
         query_terms = set(self.tokenizer.cut_for_index(question))
         for variant in expand_query(question):
             query_terms |= set(self.tokenizer.cut_for_index(variant))
 
+        # 每个候选要点记录：句子 + 所属文档 + 在原文中的字符区间
         scored: List[tuple] = []
         for doc_rank, document in enumerate(documents):
-            for sent_rank, sentence in enumerate(split_sentences(document["content"])):
+            content = document["content"]
+            for start, end, sentence in split_sentences_with_offsets(content):
                 if self._skip_sentence(sentence):
                     continue
                 score = self._score_sentence(sentence, query_terms, idf_lookup, doc_rank)
                 if score > 0:
-                    scored.append((score, doc_rank, sent_rank, sentence, document))
+                    scored.append((score, doc_rank, start, end, sentence, document))
 
         # 按分数选句，并过滤高度重复的句子
         scored.sort(key=lambda item: (-item[0], item[1], item[2]))
         picked, seen = [], []
         for item in scored:
-            tokens = set(self.tokenizer.cut(item[3]))
+            tokens = set(self.tokenizer.cut(item[4]))
             if any(self._jaccard(tokens, other) > 0.75 for other in seen):
                 continue
             seen.append(tokens)
@@ -167,14 +225,24 @@ class AnswerGenerator:
             head = documents[0]["content"][:200].replace("\n", " ")
             body = f"未匹配到直接答案，最相关资料（{self._source_name(documents[0])}）：{head}..."
             return {"answer": body, "mode": "extractive",
-                    "citations": self._citations(documents)}
+                    "citations": self._citations(documents),
+                    "claims": [], "card": card}
 
         # 按文档顺序还原，阅读更连贯
         picked.sort(key=lambda item: (item[1], item[2]))
-        lines = [
-            f"{index}. {sentence}  ——（{self._source_name(document)}）"
-            for index, (_score, _doc_rank, _sent_rank, sentence, document) in enumerate(picked, 1)
-        ]
+        claims, lines = [], []
+        for index, (_score, _doc_rank, start, end, sentence, document) in enumerate(picked, 1):
+            metadata = document.get("metadata", {})
+            claims.append({
+                "index": index,
+                "text": sentence,
+                "doc_id": document.get("doc_id"),
+                "source": metadata.get("source", "unknown"),
+                "title": metadata.get("title", ""),
+                "start": start,
+                "end": end,
+            })
+            lines.append(f"{index}. {sentence}  ——（{self._source_name(document)}）")
 
         parts = []
         if kg_context:
@@ -186,6 +254,8 @@ class AnswerGenerator:
             "answer": "\n\n".join(parts),
             "mode": "extractive",
             "citations": self._citations(documents),
+            "claims": claims,
+            "card": card,
         }
 
     def _score_sentence(self, sentence: str, query_terms: set,

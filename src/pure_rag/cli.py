@@ -25,6 +25,26 @@ from pure_rag.highlight import ansi, clip_spans, to_markdown
 METHODS = ("hybrid", "vector", "bm25")
 
 
+def print_card(card) -> None:
+    """打印故障结构化卡片（检索到故障案例时才有）"""
+    if not card:
+        return
+    severity = f"（严重程度：{card['severity']}）" if card.get("severity") else ""
+    print(f"\n【故障卡片】{card['title']}{severity}")
+    for field in card.get("fields", []):
+        print(f"  {field['label']}：{field['value']}")
+
+
+def print_claim_locations(claims) -> None:
+    """打印要点在原文中的定位（文档编号 + 字符区间）"""
+    if not claims:
+        return
+    print("\n要点定位（原文中的字符区间）：")
+    for claim in claims:
+        print(f"  {claim['index']}. doc{claim['doc_id']}"
+              f"（{claim['source']}/{claim['title']}）字符 {claim['start']}–{claim['end']}")
+
+
 def save_transcript(history, name: str = "", data_dir: str = "data") -> str:
     """把多轮对话导出为 Markdown 文件，返回文件路径（无对话时返回空串）"""
     if not history:
@@ -44,6 +64,14 @@ def save_transcript(history, name: str = "", data_dir: str = "data") -> str:
     ]
     for index, turn in enumerate(history, 1):
         lines += [f"## {index}. {turn['question']}", "", turn["answer"], ""]
+
+        card = turn.get("card")
+        if card:
+            severity = f"（严重程度：{card['severity']}）" if card.get("severity") else ""
+            lines += [f"> **故障卡片：{card['title']}**{severity}", ">"]
+            for field in card.get("fields", []):
+                lines.append(f"> - **{field['label']}**：{field['value']}")
+            lines.append("")
 
         documents = turn.get("documents") or []
         if documents:
@@ -108,16 +136,18 @@ def cmd_ask(args) -> int:
           f"覆盖率 {confidence['coverage']:.0%} | "
           f"{result['timings']['total'] * 1000:.1f} ms）：")
     print(result["answer"])
+    print_card(result.get("card"))
 
     if result["kg_entities"]:
         print("\n知识图谱命中：" + "、".join(e["name"] for e in result["kg_entities"]))
 
     if args.show_docs:
+        print_claim_locations(result.get("claims"))
         print("\n" + "-" * 70)
         print("检索到的文档（命中词高亮）：")
         for doc in result["retrieved_docs"]:
             metadata = doc["metadata"]
-            print(f"\n[{doc['score']:.4f}] {metadata.get('source')}"
+            print(f"\n[doc{doc['doc_id']} | {doc['score']:.4f}] {metadata.get('source')}"
                   f" / {metadata.get('title', '')} / chunk {metadata.get('chunk_id')}")
             limit = 300
             preview = doc["content"][:limit].replace("\n", " ")
@@ -193,6 +223,7 @@ def cmd_chat(args) -> int:
         result = engine.query(question, top_k=args.top_k, method=args.method,
                               alpha=args.alpha, history=history)
         print(f"\n助手 > {result['answer']}")
+        print_card(result.get("card"))
         print(f"\n(α={result['alpha']:.3f} | 覆盖率 {result['confidence']['coverage']:.0%} | "
               f"{result['timings']['total'] * 1000:.0f} ms | "
               f"参考文档 {len(result['retrieved_docs'])} 篇)")
@@ -207,6 +238,7 @@ def cmd_chat(args) -> int:
             "question": question,
             "answer": result["answer"],
             "documents": result["retrieved_docs"],
+            "card": result.get("card"),
         })
 
 

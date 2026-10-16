@@ -95,8 +95,8 @@ def _build_alias_map() -> Dict[str, List[str]]:
 ALIASES: Dict[str, List[str]] = _build_alias_map()
 
 
-# 句子切分：中文句末标点 + 换行
-_SENTENCE_SPLIT_RE = re.compile(r"(?<=[。！？；!?;])\s*|\n+")
+# 句末标点：切句时归入前一句；换行只作分隔符
+_SENTENCE_TERMINATORS = frozenset("。！？；!?;")
 _CJK_RUN_RE = re.compile(r"[\u4e00-\u9fff]+")
 _ASCII_TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9\.\-_/%]*")
 
@@ -211,9 +211,38 @@ def split_paragraphs(text: str) -> List[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 
+def split_sentences_with_offsets(text: str) -> List[Tuple[int, int, str]]:
+    """
+    按中英文句末标点与换行切句，并保留每句在原文中的字符区间
+
+    返回 [(start, end, sentence)]，start/end 可直接用于高亮定位。
+    句末标点归入前一句；换行只作分隔符不计入。
+    """
+    spans: List[Tuple[int, int, str]] = []
+    start = 0
+
+    def _emit(begin: int, end: int) -> None:
+        piece = text[begin:end]
+        stripped = piece.strip()
+        if stripped:
+            offset = len(piece) - len(piece.lstrip())
+            spans.append((begin + offset, begin + offset + len(stripped), stripped))
+
+    for index, char in enumerate(text):
+        if char in _SENTENCE_TERMINATORS:
+            _emit(start, index + 1)
+            start = index + 1
+        elif char == "\n":
+            _emit(start, index)
+            start = index + 1
+    _emit(start, len(text))
+
+    return spans
+
+
 def split_sentences(text: str) -> List[str]:
     """按中英文句末标点与换行切句，过滤空串"""
-    return [s.strip() for s in _SENTENCE_SPLIT_RE.split(text) if s and s.strip()]
+    return [sentence for _start, _end, sentence in split_sentences_with_offsets(text)]
 
 
 def fold_char(ch: str) -> str:

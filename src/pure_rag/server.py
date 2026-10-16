@@ -51,6 +51,23 @@ INDEX_HTML = """<!doctype html>
   .doc-head { display:flex; justify-content:space-between; gap:12px; font-size:12.5px; color:var(--dim); }
   .doc-body { margin-top:6px; font-size:13.5px; line-height:1.65; color:#c8d6e2; }
   .doc-body mark { background:var(--accent); color:#06251a; border-radius:3px; padding:0 2px; }
+  .doc.active { outline:1px solid var(--accent); outline-offset:5px; border-radius:8px; }
+  .doc.active .doc-head span:first-child { color:var(--accent); }
+  .claim { cursor:pointer; padding:8px 11px; margin:6px 0; background:#0d151d; font-size:13.5px;
+           color:#c8d6e2; border-left:3px solid var(--line); border-radius:0 8px 8px 0; line-height:1.6; }
+  .claim:hover { border-left-color:var(--accent); color:var(--fg); }
+  .claim b { color:var(--accent); margin-right:6px; }
+  .claim mark { background:var(--accent); color:#06251a; border-radius:3px; padding:0 2px; }
+  .claim .meta { color:var(--dim); font-size:11.5px; margin-left:8px; white-space:nowrap; }
+  .card-head { font-size:14.5px; font-weight:600; margin-bottom:8px; }
+  .card-head .sev { color:#ffb454; font-size:12px; font-weight:400; margin-left:8px; }
+  #card table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  #card th { text-align:left; color:var(--dim); font-weight:500; width:78px; vertical-align:top;
+             padding:5px 8px 5px 0; white-space:nowrap; }
+  #card td { padding:5px 0; color:#c8d6e2; line-height:1.65; }
+  .locate-title { color:var(--dim); font-size:12px; margin-bottom:6px; }
+  .locate-body { font-size:13.5px; line-height:1.7; color:var(--fg); }
+  .locate-body mark { background:var(--accent); color:#06251a; border-radius:3px; padding:0 2px; }
   .bar { height:3px; background:#0d151d; border-radius:3px; margin-top:8px; }
   .bar span { display:block; height:100%; background:var(--accent); border-radius:3px; }
   h2 { font-size:14px; color:var(--dim); margin:26px 0 10px; font-weight:600; }
@@ -85,10 +102,17 @@ INDEX_HTML = """<!doctype html>
     <div class="badges" id="badges"></div>
     <div id="answer"></div>
   </div>
+  <div id="card"></div>
+  <div id="claims"></div>
   <h2>参考来源</h2>
   <div class="panel" id="docs"><span class="label">尚无检索结果</span></div>
+  <h2>定位摘录</h2>
+  <div class="panel" id="locate"><span class="label">点击上方要点可定位到原文</span></div>
 </main>
 <script>
+const esc = s => String(s).replace(/[&<>"']/g,
+  ch => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[ch]));
+
 const examples = ["齿轮箱温度过高应该怎么处理？", "变速箱异响怎么排查？",
                   "偏航系统的工作原理是什么？", "ISO VG 320齿轮油更换周期",
                   "如何提高风电机组的发电效率？"];
@@ -107,6 +131,8 @@ async function run() {
   btn.disabled = true;
   document.getElementById("err").textContent = "";
   document.getElementById("answer").textContent = "检索中…";
+  ["card", "claims"].forEach(id => { document.getElementById(id).innerHTML = ""; });
+  document.getElementById("locate").innerHTML = "<span class='label'>点击上方要点可定位到原文</span>";
 
   const alphaRaw = document.getElementById("alpha").value;
   const payload = {
@@ -135,14 +161,18 @@ async function run() {
         badges.appendChild(b);
       });
 
+    renderCard(data.card);
+    renderClaims(data.claims);
+
     const docs = document.getElementById("docs");
     docs.innerHTML = data.retrieved_docs.length ? "" : "<span class='label'>未检索到文档</span>";
     const max = Math.max(...data.retrieved_docs.map(d => d.score), 1e-6);
     data.retrieved_docs.forEach(d => {
       const div = document.createElement("div");
       div.className = "doc";
+      div.id = d.anchor || ("doc-" + (d.metadata || {}).chunk_id);
       const m = d.metadata || {};
-      div.innerHTML = `<div class="doc-head"><span>${m.source || "-"} / ${m.title || "-"} / chunk ${m.chunk_id ?? "-"}</span>
+      div.innerHTML = `<div class="doc-head"><span>${esc(m.source || "-")} / ${esc(m.title || "-")} / chunk ${m.chunk_id ?? "-"}</span>
                        <span>score ${d.score.toFixed(4)}</span></div>
                        <div class="doc-body"></div>
                        <div class="bar"><span style="width:${(d.score/max*100).toFixed(1)}%"></span></div>`;
@@ -155,6 +185,46 @@ async function run() {
   } finally {
     btn.disabled = false;
   }
+}
+
+function renderCard(card) {
+  const box = document.getElementById("card");
+  if (!card) return;
+  const rows = (card.fields || []).map(f =>
+    `<tr><th>${esc(f.label)}</th><td>${esc(f.value)}</td></tr>`).join("");
+  const sev = card.severity ? `<span class="sev">严重程度：${esc(card.severity)}</span>` : "";
+  box.innerHTML = `<div class="panel"><div class="card-head">故障卡片：${esc(card.title)}${sev}</div>
+                   <table>${rows}</table></div>`;
+}
+
+function renderClaims(claims) {
+  const box = document.getElementById("claims");
+  if (!claims || !claims.length) return;
+  const panel = document.createElement("div");
+  panel.className = "panel";
+  panel.innerHTML = `<div class="card-head">要点定位（点击跳转到原文）</div>`;
+  claims.forEach(c => {
+    const item = document.createElement("div");
+    item.className = "claim";
+    item.innerHTML = `<b>${c.index}</b>${c.excerpt_html}` +
+                     `<span class="meta">doc${c.doc_id} · 字符 ${c.start}–${c.end}</span>`;
+    item.onclick = () => locate(c);
+    panel.appendChild(item);
+  });
+  box.appendChild(panel);
+}
+
+function locate(claim) {
+  document.querySelectorAll(".doc").forEach(d => d.classList.remove("active"));
+  const target = document.getElementById(claim.anchor);
+  if (target) {
+    target.classList.add("active");
+    target.scrollIntoView({behavior: "smooth", block: "center"});
+  }
+  document.getElementById("locate").innerHTML =
+    `<div class="locate-title">doc${claim.doc_id} · ${esc(claim.source)}/${esc(claim.title || "")}` +
+    ` · 字符 ${claim.start}–${claim.end}</div>` +
+    `<div class="locate-body">${claim.excerpt_html}</div>`;
 }
 
 document.getElementById("go").onclick = run;
@@ -199,16 +269,39 @@ class RAGRequestHandler(BaseHTTPRequestHandler):
                     method=payload.get("method") or "hybrid",
                     alpha=payload.get("alpha"),
                 )
-            # 在服务端渲染高亮 HTML，前端直接插入即可（内容已转义）
-            for document in result.get("retrieved_docs", []):
-                preview = document["content"][:PREVIEW_CHARS].replace("\n", " ")
-                document["content_html"] = to_html(
-                    preview, clip_spans(document.get("spans", []), PREVIEW_CHARS)
-                )
-                document.pop("spans", None)
+            self._render_highlights(result)
             self._send_json(result)
         except Exception as exc:                         # noqa: BLE001 - 统一返回错误信息
             self._send_json({"error": str(exc)}, status=400)
+
+    @staticmethod
+    def _render_highlights(result: dict) -> None:
+        """
+        在服务端把高亮渲染成 HTML，前端直接插入即可（内容已做转义）
+
+        - 每篇文档：content_html（查询词高亮）+ anchor（供要点跳转定位）
+        - 每条要点：excerpt_html（要点句内命中词高亮）+ 所属文档的 anchor
+        """
+        documents = result.get("retrieved_docs", [])
+        spans_by_doc = {document.get("doc_id"): document.get("spans", []) for document in documents}
+
+        for document in documents:
+            preview = document["content"][:PREVIEW_CHARS].replace("\n", " ")
+            document["content_html"] = to_html(
+                preview, clip_spans(document.get("spans", []), PREVIEW_CHARS)
+            )
+            document["anchor"] = f"doc-{document.get('doc_id')}"
+            document.pop("spans", None)
+
+        for claim in result.get("claims", []):
+            start, end = claim.get("start", 0), claim.get("end", 0)
+            inner = [
+                (span_start - start, span_end - start, term)
+                for span_start, span_end, term in spans_by_doc.get(claim.get("doc_id"), [])
+                if span_start >= start and span_end <= end
+            ]
+            claim["excerpt_html"] = to_html(claim.get("text", ""), inner)
+            claim["anchor"] = f"doc-{claim.get('doc_id')}"
 
     def _send_json(self, data, status: int = 200):
         self._send(status, json.dumps(data, ensure_ascii=False).encode("utf-8"),

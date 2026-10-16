@@ -24,11 +24,13 @@ from pure_rag.engine import RAGEngine
 from pure_rag.evaluator import Evaluator
 from pure_rag.fusion import (min_max, mmr_select, reciprocal_rank_fusion,
                              weighted_fusion)
+from pure_rag.generator import build_fault_card, parse_fault_cases
 from pure_rag.highlight import ansi, clip_spans, to_html, to_markdown
 from pure_rag.loader import load_user_documents, read_text_file
 from pure_rag.query_analysis import adaptive_alpha, classify_question
+from pure_rag.server import RAGRequestHandler
 from pure_rag.text_utils import (Tokenizer, discover_terms, expand_query, find_spans,
-                                 split_sentences)
+                                 split_sentences, split_sentences_with_offsets)
 from pure_rag.tfidf import TfidfIndex
 from pure_rag.tuner import Tuner
 
@@ -471,6 +473,141 @@ class IncrementalAddTest(unittest.TestCase):
         self.engine.add_files([str(self.file)], verbose=False)
         content = self.engine.chunks[0]["content"]
         self.assertNotIn("#", content)
+
+
+class SentenceOffsetTest(unittest.TestCase):
+    """带偏移的句子切分"""
+
+    def test_offsets_map_back_to_source(self):
+        text = "齿轮箱温度异常升高。\n解决方案：立即停机检查；更换润滑油！"
+        spans = split_sentences_with_offsets(text)
+        self.assertTrue(spans)
+        for start, end, sentence in spans:
+            self.assertEqual(text[start:end], sentence)
+
+    def test_terminator_kept_newline_dropped(self):
+        spans = split_sentences_with_offsets("第一句。第二句！\n第三行")
+        self.assertEqual([s for _a, _b, s in spans], ["第一句。", "第二句！", "第三行"])
+
+    def test_consistent_with_plain_splitter(self):
+        text = "甲。乙；丙？\n丁"
+        self.assertEqual([s for _a, _b, s in split_sentences_with_offsets(text)],
+                         split_sentences(text))
+
+    def test_empty_text(self):
+        self.assertEqual(split_sentences_with_offsets(""), [])
+
+
+class ClaimLocationTest(unittest.TestCase):
+    """答案要点的引用定位"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp_dir = tempfile.mkdtemp(prefix="pure_rag_claim_")
+        cls.engine = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+                               index_dir=os.path.join(cls.tmp_dir, "index"),
+                               use_llm=False, use_kg=False)
+        cls.engine.build(verbose=False)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp_dir, ignore_errors=True)
+
+    def test_every_claim_maps_back_to_source(self):
+        result = self.engine.query("齿轮箱温度过高应该怎么处理？")
+        self.assertTrue(result["claims"])
+        for claim in result["claims"]:
+            content = self.engine.chunks[claim["doc_id"]]["content"]
+            self.assertEqual(content[claim["start"]:claim["end"]], claim["text"])
+            self.assertLess(claim["start"], claim["end"])
+
+    def test_claims_ordered_within_each_document(self):
+        claims = self.engine.query("齿轮箱温度过高", top_k=5)["claims"]
+        by_doc = {}
+        for claim in claims:
+            by_doc.setdefault(claim["doc_id"], []).append(claim["start"])
+        for starts in by_doc.values():
+            self.assertEqual(starts, sorted(starts))
+
+    def test_claim_index_is_sequential(self):
+        claims = self.engine.query("偏航系统的作用是什么？")["claims"]
+        self.assertEqual([c["index"] for c in claims], list(range(1, len(claims) + 1)))
+
+
+class FaultCardTest(unittest.TestCase):
+    """故障案例解析与结构化卡片"""
+
+    CASE = ("故障ID：FC001\n部件：齿轮箱\n故障类型：齿轮磨损\n症状：温度异常升高\n"
+            "原因：润滑油不足\n诊断：振动分析\n解决方案：更换润滑油\n"
+            "预防措施：定期检查\n严重程度：高")
+
+    def test_parse_single_case(self):
+        cases = parse_fault_cases(self.CASE)
+        self.assertEqual(len(cases), 1)
+        self.assertEqual(cases[0]["部件"], "齿轮箱")
+        self.assertEqual(cases[0]["严重程度"], "高")
+
+    def test_parse_multiple_cases_in_one_chunk(self):
+        cases = parse_fault_cases(self.CASE + "\n" + self.CASE.replace("FC001", "FC002"))
+        self.assertEqual(len(cases), 2)
+        self.assertEqual(cases[1]["故障ID"], "FC002")
+
+    def test_plain_text_is_not_a_case(self):
+        self.assertEqual(parse_fault_cases("原因：这只是普通文档里的一句话"), [])
+
+    def test_card_returns_none_without_case(self):
+        documents = [{"doc_id": 0, "content": "标题：规范\n内容：普通技术文档。"}]
+        self.assertIsNone(build_fault_card(documents))
+
+    def test_card_from_real_query(self):
+        tmp = tempfile.mkdtemp(prefix="pure_rag_card_")
+        try:
+            engine = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+                               index_dir=os.path.join(tmp, "index"), use_llm=False)
+            engine.build(verbose=False)
+            card = engine.query("齿轮箱温度过高应该怎么处理？")["card"]
+            self.assertIsNotNone(card)
+            self.assertIn("齿轮箱", card["title"])
+            labels = [field["label"] for field in card["fields"]]
+            self.assertIn("解决方案", labels)
+            self.assertIn("预防措施", labels)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+class ServerRenderTest(unittest.TestCase):
+    """服务端高亮渲染：锚点、要点摘录与转义"""
+
+    def test_documents_get_anchor_and_html(self):
+        result = {"retrieved_docs": [{"doc_id": 3, "content": "齿轮箱温度过高。",
+                                      "spans": [(0, 3, "齿轮箱")], "score": 1.0,
+                                      "metadata": {}}], "claims": []}
+        RAGRequestHandler._render_highlights(result)
+        document = result["retrieved_docs"][0]
+        self.assertEqual(document["anchor"], "doc-3")
+        self.assertIn("<mark>齿轮箱</mark>", document["content_html"])
+        self.assertNotIn("spans", document)
+
+    def test_claims_get_excerpt_with_inner_marks(self):
+        result = {
+            "retrieved_docs": [{"doc_id": 3, "content": "甲。齿轮箱温度过高。",
+                                "spans": [(2, 5, "齿轮箱")], "score": 1.0, "metadata": {}}],
+            "claims": [{"index": 1, "text": "齿轮箱温度过高。", "doc_id": 3,
+                        "start": 2, "end": 10, "source": "x", "title": "y"}],
+        }
+        RAGRequestHandler._render_highlights(result)
+        claim = result["claims"][0]
+        self.assertEqual(claim["anchor"], "doc-3")
+        self.assertIn("<mark>齿轮箱</mark>", claim["excerpt_html"])
+
+    def test_rendering_escapes_document_content(self):
+        result = {"retrieved_docs": [{"doc_id": 0, "content": "<script>alert(1)</script>",
+                                      "spans": [], "score": 1.0, "metadata": {}}],
+                  "claims": [{"index": 1, "text": "<img onerror=1>", "doc_id": 0,
+                              "start": 0, "end": 3, "source": "x", "title": "y"}]}
+        RAGRequestHandler._render_highlights(result)
+        self.assertNotIn("<script>", result["retrieved_docs"][0]["content_html"])
+        self.assertNotIn("<img", result["claims"][0]["excerpt_html"])
 
 
 class ConfidenceTest(unittest.TestCase):

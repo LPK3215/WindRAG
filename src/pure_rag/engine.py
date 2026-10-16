@@ -660,6 +660,8 @@ class RAGEngine:
             "mode": generation["mode"],
             "retrieved_docs": retrieval["documents"],
             "citations": generation["citations"],
+            "claims": generation.get("claims", []),
+            "card": generation.get("card"),
             "confidence": confidence,
             "alpha": retrieval["alpha"],
             "kg_context": retrieval["kg_context"],

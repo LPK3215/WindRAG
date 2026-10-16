@@ -132,6 +132,8 @@ $$S_{hybrid}(q, d) = \alpha \cdot \hat{S}_{vec}(q, d) + (1-\alpha) \cdot \hat{S}
 | 答案生成 | LLM API | 抽取式摘要（默认），可选 LLM（标准库 urllib 直连） |
 | 数据导入 | 需自行扩展 | 自动纳入 `data/user_docs/` 的 txt / md / json / csv / **docx**（zipfile 解析），支持 `add` 增量追加 |
 | 结果展示 | 纯文本 | 命中词字符级高亮（终端 ANSI / Web `<mark>` / 记录 Markdown 加粗） |
+| 引用定位 | 无 | 答案每条要点带 `doc_id` + 字符区间，Web 上点击即跳到原文该句 |
+| 结构化输出 | 无 | 检索到故障案例时输出「症状 / 原因 / 诊断 / 解决方案 / 预防措施」卡片 |
 | 打分明细 | 无 | `explain` 展示每个查询词对 BM25 / TF-IDF 得分的贡献 |
 | 参数调优 | 手工 | `tune` 网格搜索分块与融合参数并落盘生效 |
 | 对话记录 | 无 | `chat` 的 `/save` 或 `--log` 导出带来源的 Markdown 记录 |
@@ -159,6 +161,17 @@ python src/rag_cli.py serve --port 8000            # 零依赖 Web 界面
 把自有资料（含 Word 文档）放进 `data/user_docs/` 后重新 `build` 即可被检索到；也可以直接
 `add 文件/目录` 增量入库（只对新增文档分块分词，旧文档复用持久化的词序列）。
 
+`ask --show-docs` 除了高亮命中词，还会打印每条要点在原文中的位置：
+
+```
+要点定位（原文中的字符区间）：
+  1. doc35（qa_pairs/故障诊断）字符 22–62
+  2. doc5（fault_cases/齿轮箱）字符 28–50
+```
+
+Web 界面上这些要点可直接点击，跳转并高亮对应的来源文档；问故障类问题时还会额外渲染
+「症状 / 原因 / 诊断 / 解决方案 / 预防措施」卡片。
+
 作为库调用：
 
 ```python
@@ -175,7 +188,7 @@ for doc in result["retrieved_docs"]:
 测试与索引文件：
 
 ```bash
-python -m unittest tests.test_pure_rag -v     # 70 项单元测试
+python -m unittest tests.test_pure_rag -v     # 85 项单元测试
 ```
 `data/pure_index/` 下为 `documents.json`（分块）、`tokens.json`（词序列缓存）、`bm25.json`、
 `tfidf.json`、`meta.json`、`tuning.json`，全部可重新生成，已加入 `.gitignore`。
@@ -194,7 +207,7 @@ python -m unittest tests.test_pure_rag -v     # 70 项单元测试
 | └ 域内缺资料问题 | 16.67%（1/6，见下方已知边界） |
 | 平均检索耗时（含高亮定位） | 0.5 ms |
 | 索引构建耗时 | 0.06 s |
-| 单元测试 | 70 项全部通过 |
+| 单元测试 | 85 项全部通过 |
 
 > 评测口径：`src/pure_rag/evaluator.py` 用 QA 对的问题检索包含该 QA 对的文档块（自召回），
 > 再把问题改写为同义词表达（齿轮箱 → 变速箱、桨叶、刹车）或关键词查询后重测，无需人工标注即可复现。
@@ -217,6 +230,8 @@ python -m unittest tests.test_pure_rag -v     # 70 项单元测试
 - **同义词打通**：查询侧别名→标准词扩展 + 索引侧标准词→别名扩展，配合最大匹配分词，"变速箱"与"齿轮箱"可直接互相命中
 - **答案生成**：句子级 IDF 加权打分 + 结构化字段加成 + 近似去重 + 相关性下限过滤，输出带来源标注的要点
 - **命中高亮**：逐字符归一化（长度不变）后用 `str.find` 定位，得到可映射回原文的字符区间，再渲染成 ANSI / `<mark>` / Markdown 三种载体
+- **引用定位**：`split_sentences_with_offsets` 切句时就保留字符区间（句末标点归前句、换行只作分隔），要点因此能反查原文精确位置；文档片段与要点摘录都在服务端渲染成转义后的 HTML，前端只负责切换高亮
+- **故障卡片**：按「字段：值」解析故障案例文本，取排序最靠前的完整案例整理成结构化卡片；字段少于 4 个的块不认，避免普通文档里恰好出现的「原因：」被误判
 - **增量追加**：词序列随索引持久化，新增文档只需分块分词自己，再重建 BM25/TF-IDF 的统计结构（IDF 依赖全局 df，无法局部更新）
 - **置信度与拒答**：`coverage = Σ IDF(命中的查询词) / Σ IDF(全部查询词)`；命中需至少含一个多字词（单字会靠「科幻电影」的「电」蒙混过关），覆盖率不足即拒答并回退到「知识库没有相关资料」，同时省下这次 LLM 调用
 - **可解释性**：`explain` 输出每个查询词在两路召回上的独立贡献，便于定位"为什么这篇文档排第一"
@@ -330,7 +345,7 @@ WindRAG/
 │       ├── engine.py             # RAGEngine 主引擎（含增量追加）
 │       └── cli.py                # 命令行子命令
 ├── tests/
-│   └── test_pure_rag.py          # 纯 Python 内核单元测试（70 项）
+│   └── test_pure_rag.py          # 纯 Python 内核单元测试（85 项）
 ├── .cnb.yml                      # 持续集成：PR 与 main 自动跑单测 + 评测门禁
 ├── data/                         # 数据目录
 │   ├── raw/                      # 原始数据
