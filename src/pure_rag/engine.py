@@ -124,7 +124,9 @@ class RAGEngine:
 
         from model_manager import create_default_model_manager   # 复用既有模型池（零依赖）
 
-        manager = create_default_model_manager()
+        # 轮转位落在索引目录下（可重新生成的本地状态），保证 CLI 一次一个新进程时也能接着转
+        manager = create_default_model_manager(
+            rotation_file=str(self.index_dir / "llm_rotation.json"))
         if not manager.models:
             return None
         return LLMClient(manager)
@@ -675,6 +677,7 @@ class RAGEngine:
                 "cached": False,
                 "answer": "请输入有效的问题。",
                 "mode": "empty",
+                "llm_model": None,
                 "retrieved_docs": [],
                 "citations": [],
                 "claims": [],
@@ -756,6 +759,8 @@ class RAGEngine:
             "cached": False,
             "answer": generation["answer"],
             "mode": generation["mode"],
+            # 本轮实际用的生成模型（抽取式/未配时为 None）
+            "llm_model": generation.get("llm_model"),
             # LLM 调用失败但退回抽取式时，降级原因随结果一并返回
             "llm_error": generation.get("llm_error"),
             "retrieved_docs": retrieval["documents"],
@@ -823,6 +828,10 @@ class RAGEngine:
             # 最近一次调用失败的原因，界面可以在“冷却中”徽章里带上它，避免只看到一个旧状态
             "llm_last_error": (self.generator.llm_client.last_error
                                if self.generator.llm_client else None),
+            # 模型池成员与各自状态，用于确认“真的在轮流用”而不是只配了一堆名字
+            "llm_pool": (self.generator.llm_client.model_manager.get_model_stats()
+                         if (self.generator.llm_client and self.generator.llm_client.model_manager)
+                         else {}),
             "kg": kg_stats,
             "tuning": self.tuning or "默认参数（可运行 tune 子命令搜索）",
         }

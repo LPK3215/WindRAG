@@ -78,6 +78,7 @@ body {
 }
 .chip b { color: var(--accent); font-weight: 600; }
 .chip.off b { color: var(--dim); }
+.chip .chip-sub { color: var(--dim); margin-left: 4px; }
 
 /* ---------- 对话区 ---------- */
 

@@ -475,26 +475,32 @@ python src/gen_readme_facts.py                       # 刷新 README 的“当�
 ```env
 LLM_PROVIDER=zhipu            # zhipu | modelscope，决定默认服务地址与免费档模型池
 LLM_API_KEY=your_api_key_here
-LLM_MODELS=glm-4-flash-250414:1,glm-4-flash:2,glm-4.5-flash:3
+LLM_MODELS=glm-4-flash-250414:1,glm-4.7-flash:2,glm-4v-flash:3,glm-4-flash:4,glm-4.5-flash:5
 DISABLE_LLM=false
 ```
 
-`LLM_MODELS` 格式为 `name:priority`，失败自动切下一个并进入 60s 冷却。
-**只把免费档放进池子**，否则真实消耗余额；本项目实测结果：
+`LLM_MODELS` 格式为 `name:priority`，失败自动切下一个并进入 60s 冷却；**所有免费档轮流使用**：
+一次调用成功后会自动换到下一个模型，轮转位存在 `data/pure_index/llm_rotation.json`（可删，删了就从头开始转），
+所以命令行一次一个新进程也不会总打同一个模型。本条是哪个模型答的会写在答案里（CLI 头部与 Web 顶栏）。
+**只把免费档放进池子**，否则真实消耗余额；本项目实测结果（关推理后的延迟）：
 
 | 模型 | 实测 | 处置 |
 |---|---|---|
-| glm-4-flash-250414 | 200，约 4.3s，正文干净 | 默认第 1 优先 |
-| glm-4-flash | 200，约 9.0s，正文干净 | 默认第 2 优先 |
-| glm-4.5-flash | 200，约 54s，正文干净（推理走 reasoning_content） | 默认兜底位 |
-| glm-z1-flash | 200，但把思维链写进 content，600 token 被推理吃完后没有正文 | 默认不入池 |
-| glm-4v-flash | 200，多模态（可读图） | 纯文本问答用不上 |
-| glm-4.7-flash | 429/1305 当前访问量过大 | 不入池 |
+| glm-4-flash-250414 | 200，约 2.4s，正文干净 | 入池，优先级 1 |
+| glm-4.7-flash | 200，约 4.0s（带 `thinking=disabled` 后正文干净；不关时推理占满 token 到“4.”就断了） | 入池，优先级 2；偶发 429/1305 过载会自动跳下一个 |
+| glm-4v-flash | 200，约 5.9s，多模态也能纯文本问答 | 入池，优先级 3 |
+| glm-4-flash | 200，约 6.1s（高峰时到 16s），正文干净 | 入池，优先级 4 |
+| glm-4.5-flash | 200，约 27s（偶发到 50s+），推理走 reasoning_content | 入池，优先级 5（最后备选） |
+| glm-z1-flash | 200，但 `thinking.type=disabled` 也关不住推理：17s 后仍是半段思考被 token 截断，拿不到正文 | 不入池（代码保留截断检测，强行加回来只会白等 17s） |
 | glm-4.6-flash | 403/1220 无权访问 | 不入池 |
 | glm-5.x / glm-4-air / airx / long / plus | 429/1113 余额不足（收费档） | 不得入池 |
 
-三条约束：
+几条约定：
 
+- **错误码会转成可执行提示**：1113 会提示“该模型属收费档，请从 LLM_MODELS 移除”，
+  1220 提示换免费档，1305 提示“服务端临时过载，稍后重试”，不再只报一个 429。
+- **轮流用免费档**：模型池里每个免费模型都会轮到，不会只用一个用到死；被截断、超时、过载的模型
+  会自动跳到下一个，连续失败 3 次才进入 60s 冷却。
 - **评测不调模型**：`eval` / `ablation` / `tune` 默认强制抽取式（`eval --use-llm` 才开），
   一千多条查询不应该去砸免费额度，也不能让非确定的生成污染指标。
 - **降级不静默**：LLM 失败或模型池全部冷却时，答案退回抽取式，并在 `llm_error` 里

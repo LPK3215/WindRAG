@@ -118,7 +118,8 @@ class RAGRequestHandler(BaseHTTPRequestHandler):
                     history=history,
                 )
             if session_id:
-                result["turns"] = self.sessions.append(session_id, question, result["answer"])
+                # 存的是“上下文中保留了几轮”，与对话总轮数不是一回事（前者有上限）
+                result["context_turns"] = self.sessions.append(session_id, question, result["answer"])
             self._render_highlights(result)
             self._send_json(result)
         except Exception as exc:                         # noqa: BLE001 - 统一返回错误信息

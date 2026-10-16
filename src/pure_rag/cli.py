@@ -134,6 +134,8 @@ def cmd_ask(args) -> int:
     print("=" * 70)
     confidence = result["confidence"]
     label = "拒答" if result["mode"] == "refused" else f"{result['mode']} 生成"
+    if result.get("llm_model"):
+        label += f"({result['llm_model']})"     # 轮流调用时看得出本条是哪个模型答的
     print(f"答案（{label} | α={result['alpha']:.3f} | "
           f"覆盖率 {confidence['coverage']:.0%} | "
           f"{result['timings']['total'] * 1000:.1f} ms）：")

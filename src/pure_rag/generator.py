@@ -102,6 +102,14 @@ CITATION_TAIL_RE = re.compile(
     re.IGNORECASE)
 
 
+# 服务端错误码 → 可执行提示；只看到“429”分不出是收费档还是临时过载，用户无法行动
+ERROR_HINTS = {
+    "1113": "该模型属收费档（余额不足），请从 LLM_MODELS 里移除，只留免费可调的模型",
+    "1220": "当前账户无权访问该模型，请换用免费档模型",
+    "1305": "服务端临时过载，稍后重试即可，不一定是配置问题",
+}
+
+
 class LLMClient:
     """
     OpenAI 兼容接口客户端（urllib 实现）
@@ -114,6 +122,7 @@ class LLMClient:
         self.timeout = timeout
         self.max_attempts = max_attempts
         self.last_error: Optional[str] = None
+        self.last_model: Optional[str] = None
 
     @property
     def available(self) -> bool:
@@ -123,13 +132,14 @@ class LLMClient:
 
     def chat(self, prompt: str, system_prompt: str = SYSTEM_PROMPT,
              temperature: float = 0.7, max_tokens: int = 600) -> Optional[str]:
-        """调用对话接口，全部模型失败时返回 None（失败原因留在 last_error）"""
+        """调用对话接口，全部模型失败时返回 None（失败原因留在 last_error，用过的模型在 last_model）"""
         for _ in range(self.max_attempts):
             model = self.model_manager.get_current_model()
             if not model:
                 break
             try:
                 content = self._post(model, prompt, system_prompt, temperature, max_tokens)
+                self.last_model = model.name
                 self.model_manager.report_success(model.name)
                 return content
             except Exception as exc:                      # noqa: BLE001 - 任何异常都触发降级
@@ -155,11 +165,34 @@ class LLMClient:
                     detail = " ".join(part for part in (str(code), message) if part) or detail
         except ValueError:
             pass
-        return f"HTTP {exc.code} {detail}".strip()
+        message = f"HTTP {exc.code} {detail}".strip()
+        for code, hint in ERROR_HINTS.items():
+            if code in message:
+                message += f"（提示：{hint}）"
+                break
+        return message
 
     def _post(self, model, prompt: str, system_prompt: str,
               temperature: float, max_tokens: int) -> str:
-        payload = json.dumps({
+        """
+        思维链模型先带 thinking.type=disabled 请求（否则推理占满 token 没有正文）；
+        服务端不认这个参数（400）时去掉它再请求一次。
+        """
+        if getattr(model, "thinking_toggle", False):
+            for use_thinking in (True, False):
+                try:
+                    return self._request(model, prompt, system_prompt, temperature,
+                                         max_tokens, use_thinking)
+                except RuntimeError as exc:
+                    if use_thinking and "HTTP 400" in str(exc):
+                        continue
+                    raise
+            raise RuntimeError("thinking 参数被服务端拒绝（HTTP 400）")
+        return self._request(model, prompt, system_prompt, temperature, max_tokens, False)
+
+    def _request(self, model, prompt: str, system_prompt: str, temperature: float,
+                 max_tokens: int, use_thinking: bool) -> str:
+        payload = {
             "model": model.name,
             "messages": [
                 {"role": "system", "content": system_prompt},
@@ -167,11 +200,13 @@ class LLMClient:
             ],
             "temperature": temperature,
             "max_tokens": max_tokens,
-        }).encode("utf-8")
+        }
+        if use_thinking:
+            payload["thinking"] = {"type": "disabled"}
 
         request = urllib.request.Request(
             url=f"{model.base_url.rstrip('/')}/chat/completions",
-            data=payload,
+            data=json.dumps(payload).encode("utf-8"),
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {model.api_key}",
@@ -202,6 +237,9 @@ class LLMClient:
         if not content:
             raise RuntimeError(f"返回内容为空（finish_reason="
                                f"{data['choices'][0].get('finish_reason')}）")
+        if data["choices"][0].get("finish_reason") == "length":
+            # token 上限截断的回答往往是半段推理，拿它当答案会误导用户，不如换下一个模型
+            raise RuntimeError(f"回答被 token 上限截断（max_tokens={max_tokens}）")
         return content
 
 
@@ -232,6 +270,7 @@ class AnswerGenerator:
                 "citations": [],
                 "claims": [],
                 "card": None,
+                "llm_model": None,
             }
 
         documents = self._filter_by_score(documents)
@@ -243,7 +282,9 @@ class AnswerGenerator:
                 if answer:
                     return {"answer": answer, "mode": "llm",
                             "citations": self._citations(documents),
-                            "claims": [], "card": card}
+                            "claims": [], "card": card,
+                            # 哪个模型答的要有处可查，否则轮流调用时用户看不出变化
+                            "llm_model": self.llm_client.last_model}
                 llm_error = self.llm_client.last_error
             else:
                 # 模型池全部处于冷却期时连试都不试；不告知的话用户只看得到 extractive，
@@ -253,6 +294,7 @@ class AnswerGenerator:
                              + (f"；最近一次失败：{last}" if last else ""))
 
         result = self._extractive(question, documents, kg_context, idf_lookup, card)
+        result.setdefault("llm_model", None)
         if llm_error:
             result["llm_error"] = llm_error
         return result

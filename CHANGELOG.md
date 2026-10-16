@@ -189,6 +189,19 @@
   Web 层加字段不再污染引擎缓存
 
 ### 变更
+- 免费档模型不再只用一个：模型池放进 5 个实测可用免费档（glm-4-flash-250414 / glm-4.7-flash / glm-4v-flash /
+  glm-4-flash / glm-4.5-flash），一次调用成功就轮到下一个（`report_success` 里推进轮转位），
+  并把轮转位存 `data/pure_index/llm_rotation.json`，让命令行一次一个新进程时也能接着转
+- 思维链模型（4.5 / 4.7）请求自动带 `thinking.type=disabled`，服务端不认该参数（400）时去掉再试一次；
+  `finish_reason=length` 的回答（只有半段思考）不再当答案给用户，而是报错转下一个模型；
+  实测 glm-4.7-flash 关推理后从“32s 且无正文”变成约 4s 出正常答案；glm-z1-flash 关不住推理（实测 17s
+  仍被 token 截断），因此仍不入池，但代码保留截断检测
+- 错误码转成可执行提示：1113 提示“该模型属收费档，请从 LLM_MODELS 移除”、1220 提示换免费档、
+  1305 提示“服务端临时过载，稍后重试”
+- 答案可看到是谁答的：结果新增 `llm_model`，CLI 答案头部与 Web meta 行都会显示模型名；
+  `stats` 新增 `llm_pool`（每个模型的可用/失败/请求数），顶栏显示“池内 N 个”
+- Web 轮数计数不再封顶：`/api/query` 的 `turns` 改名 `context_turns`（它是“上下文保留了几轮”，
+  有 8 轮上限），页面轮数由前端自己数，超过 8 轮不再停在“共 8 轮”
 - 项目主线收敛为纯 Python：`AGENTS.md` 写入「项目自身需求」（只用标准库、检索与生成分离、
   重依赖模块只作对照、入口必须走 `stdio.configure_streams()`、文档数字不写死）
 - README 结构调整：新增「本地部署（纯 Python，主线）」与脚本生成的「当前实测数据」块，

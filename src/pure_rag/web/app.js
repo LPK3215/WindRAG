@@ -24,7 +24,7 @@ const input = $("input");
 const sendBtn = $("send");
 
 let thread = null;
-let turns = 0;
+let asked = 0;               // 本会话已提问数（界面计数用，与上下文保留轮数不同）
 let busy = false;
 let sessionId = newSessionId();
 let history = [];              // [{question, data}]，用于刷新后恢复对话
@@ -50,12 +50,12 @@ function persist() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       sessionId,
-      turns,
+      asked,
       messages: history.slice(-MAX_STORED_TURNS),
     }));
   } catch (err) {
     // 超出配额时退化成只记会话号，不影响当前使用
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId, turns, messages: [] })); }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId, asked, messages: [] })); }
     catch (ignored) { /* 隐私模式下完全不落盘 */ }
   }
 }
@@ -65,13 +65,14 @@ function restore() {
   try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch (err) { saved = null; }
   if (!saved || !saved.sessionId) return;
   sessionId = saved.sessionId;
-  // 旧版本可能只写了 turns 没写 messages（或两者不符），一律以实际能恢复的气泡数为准
+  // 旧版本可能只写了计数字段没有 messages；计数以实际可恢复的气泡为准，
+  // 但保留旧会话的总提问数（服务端的上下文有上限，不能拿来当总轮数用）
   const messages = Array.isArray(saved.messages) ? saved.messages : [];
   messages.forEach((item) => {
     renderAnswer(item.question, item.data);
     history.push(item);
   });
-  turns = history.length;
+  asked = Number(saved.asked) || history.length;
   updateTurns();
   if (history.length) toBottom();   // 恢复完应停在最新一条，而不是顶部
 }
@@ -88,21 +89,30 @@ function ensureThread() {
 
 function resetThread() {
   if (thread) { thread.remove(); thread = null; }
-  turns = 0;
+  asked = 0;
   history = [];
   updateTurns();
   welcome.style.display = "";
 }
 
-function updateTurns() { $("turns").textContent = "共 " + turns + " 轮"; }
+function updateTurns() { $("turns").textContent = "共 " + asked + " 轮"; }
 
 function toBottom() { transcript.scrollTop = transcript.scrollHeight; }
 
 /* ---------------- 顶栏状态 ---------------- */
 
+// 顶栏宽度有限，长文案截断；截断时补省略号，否则读到一半断句会让人误读
+const CHIP_DETAIL_LIMIT = 120;
+
+function shorten(text) {
+  const s = String(text || "");
+  return s.length > CHIP_DETAIL_LIMIT ? s.slice(0, CHIP_DETAIL_LIMIT) + "…" : s;
+}
+
 function paintLlmChip(state, detail) {
   const chip = $("chip-llm");
-  const suffix = detail ? "（" + esc(String(detail).slice(0, 60)) + "）" : "";
+  const brief = shorten(detail);
+  const suffix = brief ? "（" + esc(brief) + "）" : "";
   const map = {
     on: ["模型 <b>已启用</b>", false],
     cooling: ["模型 <b>不可用</b>" + suffix, true],
@@ -121,6 +131,8 @@ async function loadStatus() {
                  s.llm_enabled ? "" : s.llm_last_error);
     $("chip-corpus").innerHTML = "语料 <b>" + esc(s.source_documents) + " 篇</b> / "
       + esc(s.chunks) + " 块 · 词表 " + esc(s.vocabulary);
+    const pool = Object.keys(s.llm_pool || {}).length;
+    if (pool) $("chip-llm").innerHTML += " <span class='chip-sub'>池内 " + esc(pool) + " 个</span>";
   } catch (err) {
     $("chip-llm").textContent = "状态获取失败";
   }
@@ -147,6 +159,8 @@ function metaLine(data) {
   const refused = data.mode === "refused";
   const items = [
     ["生成方式", data.mode],
+    // 轮流调用时要知道本条是谁答的，否则“哪个模型在用”完全不可见
+    ...(data.llm_model ? [["模型", data.llm_model]] : []),
     // alpha 只在混合检索下起作用；拒答轮没用到融合结果排序，列出来只会多余
     ...(hybrid && !refused ? [["alpha", Number(data.alpha).toFixed(3)]] : []),
     ["检索", data.method || "hybrid"],
@@ -383,7 +397,8 @@ async function ask() {
     holder.stop();
     holder.box.remove();
     renderAnswer(question, data, holder.turn);
-    turns = data.turns || (turns + 1);
+    // 轮数自己数：服务端返回的 context_turns 是“上下文保留了几轮”，有 8 轮上限
+    asked += 1;
     updateTurns();
     history.push({ question, data });
     persist();
