@@ -53,8 +53,8 @@ const KNOWN_FLAGS = [
 const unknownFlags = args.filter((a) => a.startsWith("--") && !KNOWN_FLAGS.includes(a));
 if (unknownFlags.length > 0) {
   console.error(
-    `未知参数：${unknownFlags.join(" ")}\n` +
-      `可用参数：${KNOWN_FLAGS.join(" / ")}（--config / --tag / --notes 需跟一个值）`
+    `Unknown argument(s): ${unknownFlags.join(" ")}\n` +
+      `Available flags: ${KNOWN_FLAGS.join(" / ")} (--config, --tag, and --notes need a value)`
   );
   process.exit(1);
 }
@@ -83,15 +83,15 @@ const configPath = path.resolve(
 function loadConfig() {
   if (!fs.existsSync(configPath)) {
     console.error(
-      `找不到配置文件：${configPath}\n` +
-        `从模板复制 pipeline.config.example.json 到项目根并改名为 pipeline.config.json。`
+      `Config file not found: ${configPath}\n` +
+        "Copy pipeline.config.example.json to the project root as pipeline.config.json."
     );
     process.exit(1);
   }
   try {
     return JSON.parse(fs.readFileSync(configPath, "utf8"));
   } catch (err) {
-    console.error(`配置文件不是合法 JSON：${configPath}\n${err.message}`);
+    console.error(`Invalid JSON config: ${configPath}\n${err.message}`);
     process.exit(1);
   }
 }
@@ -168,8 +168,8 @@ function resolveTag() {
     if (v) return `${tagPrefix}${v}`;
   }
   console.error(
-    "推不出 tag：配置里没有可解析的版本文件（type 为 json / toml-package），而且没给 --tag。\n" +
-      `请在 pipeline.config.json 里加 "localPublish": { "versionFrom": "package.json" }，或显式传 --tag <tag>。`
+    "Cannot resolve a tag: no parseable version file (json or toml-package) is configured and --tag was not provided.\n" +
+      `Add "localPublish": { "versionFrom": "package.json" } to pipeline.config.json, or pass --tag <tag>.`
   );
   process.exit(1);
 }
@@ -263,8 +263,8 @@ function ghReady() {
     execSync("gh --version", { stdio: "pipe" });
   } catch {
     console.error(
-      "\n建 Release 需要 GitHub CLI（gh）：没装就到 https://cli.github.com 装一个，然后 `gh auth login`。\n" +
-        "只想在本地出包不建 Release 的话，加 --no-release。"
+      "\nCreating a Release requires GitHub CLI (gh). Install it from https://cli.github.com and run `gh auth login`.\n" +
+        "Use --no-release to build locally without creating a Release."
     );
     process.exit(1);
   }
@@ -275,9 +275,9 @@ function ghReady() {
     execSync("gh auth token", { stdio: "pipe" });
   } catch {
     console.error(
-      "\ngh 没有可用凭据：先 `gh auth login`，或设置 GH_TOKEN / GITHUB_TOKEN 环境变量；\n" +
-        "只想在本地出包就加 --no-release。\n" +
-        "（若你的网络访问 GitHub 需要代理，请先设好 HTTPS_PROXY / HTTP_PROXY —— 真正上传产物时要用。）"
+      "\ngh has no usable credentials. Run `gh auth login` or set GH_TOKEN / GITHUB_TOKEN.\n" +
+        "Use --no-release to build locally without creating a Release.\n" +
+        "If GitHub requires a proxy, configure HTTPS_PROXY / HTTP_PROXY before uploading."
     );
     process.exit(1);
   }
@@ -287,16 +287,16 @@ function ghReady() {
 const tag = resolveTag();
 const version = tag.replace(new RegExp(`^${tagPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`), "");
 
-console.log(`\n[publish-local] 仓库：${ROOT}`);
-console.log(`[publish-local] tag：${tag}${dryRun ? "   （dry-run）" : ""}`);
-console.log(`[publish-local] 出包步骤：${steps.length} 条 · 产物 glob：${artifactGlobs.length} 条`);
+console.log(`\n[publish-local] Repository: ${ROOT}`);
+console.log(`[publish-local] Tag: ${tag}${dryRun ? "   (dry-run)" : ""}`);
+console.log(`[publish-local] Build steps: ${steps.length}; artifact globs: ${artifactGlobs.length}`);
 
 // steps 与 artifacts 都允许为空 —— 那意味着「纯文本发布」：只建带 release notes 的
 // Release、不挂任何文件。文档站、纯库、只发版本说明的项目都属于这一类，
 // "发布"不必等于"出安装包"。
 if (steps.length === 0 && artifactGlobs.length === 0) {
   console.log(
-    "\n[publish-local] 未配置出包步骤与产物 —— 走**纯文本发布**（只建 Release + release notes，不出任何包）。"
+    "\n[publish-local] No build steps or artifacts configured; creating a text-only Release with notes."
   );
 }
 
@@ -304,8 +304,8 @@ if (steps.length === 0 && artifactGlobs.length === 0) {
 const status = execSync("git status --porcelain", { cwd: ROOT }).toString().trim();
 if (status && !force) {
   console.error(
-    "工作区有未提交改动，出包应从干净历史出发（产物才对得上 tag）。\n" +
-      "先提交或撤销改动，或用 --force 强行继续（风险自负）。\n\n" +
+    "The worktree has uncommitted changes; build from a clean history so artifacts match the tag.\n" +
+      "Commit or discard the changes, or use --force to continue.\n\n" +
       status
   );
   process.exit(1);
@@ -321,9 +321,9 @@ try {
 }
 if (!hasLocalTag) {
   console.error(
-    `本地没有 tag ${tag}。本脚本只负责"出包 + 建 Release"，打 tag 交给 release.mjs：\n` +
+    `Local tag ${tag} does not exist. This script builds and creates Releases; release.mjs creates tags:\n` +
       `  node scripts/release.mjs ${version}\n` +
-      `（它会把版本号回写到配置里的每个位置、commit、打 tag、推分支与 tag。）`
+      "(It updates configured version files, commits, tags, and pushes the branch and tag.)"
   );
   process.exit(1);
 }
@@ -338,15 +338,15 @@ try {
 }
 if (!hasRemoteTag && !noRelease) {
   console.error(
-    `远程 ${remote} 上还没有 tag ${tag}，Release 必须挂在远程 tag 上。\n` +
-      `先推送：git push ${remote} ${tag}`
+    `Remote ${remote} does not have tag ${tag}; a Release must reference a remote tag.\n` +
+      `Push it first: git push ${remote} ${tag}`
   );
   process.exit(1);
 }
 
 // 4) 门禁
 if (!skipVerify) {
-  console.log("\n[publish-local] 跑发布门禁…");
+  console.log("\n[publish-local] Running release gates...");
   if (dryRun) {
     console.log(`$ "${process.execPath}" "${path.join(__dirname, "verify.mjs")}"`);
   } else {
@@ -356,11 +356,11 @@ if (!skipVerify) {
     });
   }
 } else {
-  console.log("\n[publish-local] 已跳过门禁（--no-verify）");
+  console.log("\n[publish-local] Release gates skipped (--no-verify).");
 }
 
 // 5) 出包
-console.log("\n[publish-local] 本地出包：");
+console.log("\n[publish-local] Local build:");
 for (const s of steps) {
   const name = s.name || s.cmd;
   console.log(`  - [${name}] ${s.cmd}${s.cwd ? `  (cwd: ${s.cwd})` : ""}`);
@@ -370,15 +370,15 @@ for (const s of steps) shStep(s.cmd, s.cwd);
 // 6) 收集产物
 const files = artifactGlobs.flatMap((g) => expandGlob(g)).filter((f, i, a) => a.indexOf(f) === i);
 if (artifactGlobs.length === 0) {
-  console.log("\n[publish-local] 未配置 artifacts —— 纯文本发布，不挂任何文件。");
+  console.log("\n[publish-local] No artifacts configured; text-only Release.");
 } else {
-  console.log(`\n[publish-local] 产物：`);
+  console.log(`\n[publish-local] Artifacts:`);
   if (files.length === 0) {
-    console.log(dryRun ? "  （dry-run：未执行出包，产物要真跑一次才会产生）" : "  （一个都没匹配到）");
+    console.log(dryRun ? "  (dry-run: build not executed, so artifacts are not available)" : "  (no matches)");
     if (!dryRun) {
       console.warn(
-        `  ⚠ 这不一定是错：跨平台形态里"本机没出的包"本来就匹配不到（如 Tauri 在 Windows 上不会产出 .dmg）——\n` +
-          `    确认 glob 写对了就继续；写错了就改配置。当前 glob：${artifactGlobs.join(", ")}`
+        `  Warning: this may be expected when a platform cannot produce an artifact locally.\n` +
+          `    Check the glob and continue if it is correct. Current glob: ${artifactGlobs.join(", ")}`
       );
     }
   } else {
@@ -391,7 +391,7 @@ if (artifactGlobs.length === 0) {
 
 // 7) Release
 if (noRelease) {
-  console.log("\n[publish-local] 已指定 --no-release：产物留在本地，未触碰 GitHub。");
+  console.log("\n[publish-local] --no-release selected; artifacts remain local and GitHub was not contacted.");
   process.exit(0);
 }
 
@@ -414,15 +414,15 @@ if (!notesFile) {
     const tmp = path.join(ROOT, `.publish-local-notes-${version}.md`);
     if (!dryRun) fs.writeFileSync(tmp, body + "\n");
     notesFile = rel(tmp);
-    console.log(`\n[publish-local] release notes：取自 CHANGELOG.md 的 ${version} 段`);
+    console.log(`\n[publish-local] Release notes loaded from the ${version} section of CHANGELOG.md`);
   } else {
-    console.log(`\n[publish-local] CHANGELOG.md 里没有 ${version} 段，release notes 用 gh 自动生成`);
+    console.log(`\n[publish-local] CHANGELOG.md has no ${version} section; gh will generate release notes`);
   }
 }
 
 if (dryRun) {
   console.log(
-    `\n[dry-run] 将会${releaseExists ? "更新已存在的 Release" : "创建 Release"} ${tag}，产物 ${files.length} 个。未执行任何写操作。`
+    `\n[dry-run] Would ${releaseExists ? "update the existing Release" : "create a Release"} ${tag} with ${files.length} artifact(s). No writes were performed.`
   );
   process.exit(0);
 }
@@ -433,18 +433,18 @@ try {
     const notesArgs = notesFile ? `--notes-file "${notesFile}"` : "--generate-notes";
     sh(`gh release create "${tag}" ${quoted} --title "${tag}" ${notesArgs} --latest`);
     console.log(
-      `\n[publish-local] ✓ 已创建 Release ${tag}` +
-        (files.length > 0 ? `（${files.length} 个产物）` : "（纯文本发布，无产物）")
+      `\n[publish-local] Release ${tag} created` +
+        (files.length > 0 ? ` (${files.length} artifact(s))` : " (text-only, no artifacts)")
     );
   } else if (clobber) {
     const quoted = files.map((f) => `"${f}"`).join(" ");
     sh(`gh release upload "${tag}" ${quoted} --clobber`);
     if (notesFile) sh(`gh release edit "${tag}" --notes-file "${notesFile}"`);
-    console.log(`\n[publish-local] ✓ 已覆盖 Release ${tag} 的产物（--clobber）`);
+    console.log(`\n[publish-local] Release ${tag} artifacts replaced (--clobber).`);
   } else {
     console.error(
-      `\nRelease ${tag} 已存在。要覆盖它的产物，加 --clobber（会替换同名资产）。\n` +
-        `想看一眼：gh release view ${tag}`
+      `\nRelease ${tag} already exists. Add --clobber to replace its artifacts.\n` +
+        `Inspect it with: gh release view ${tag}`
     );
     process.exit(1);
   }
@@ -454,4 +454,4 @@ try {
   if (!notesFileArg && fs.existsSync(tmp)) fs.unlinkSync(tmp);
 }
 
-console.log(`\n[publish-local] 完成。查看：gh release view ${tag} --web`);
+console.log(`\n[publish-local] Complete. View with: gh release view ${tag} --web`);

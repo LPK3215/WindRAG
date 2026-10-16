@@ -39,8 +39,8 @@ const KNOWN_FLAGS = ["--dry-run", "--skip-assets", "--force", "--tag", "--only",
 const unknownFlags = args.filter((a) => a.startsWith("--") && !KNOWN_FLAGS.includes(a));
 if (unknownFlags.length > 0) {
   console.error(
-    `未知参数：${unknownFlags.join(" ")}\n` +
-      `可用参数：${KNOWN_FLAGS.join(" / ")}（--tag / --only / --config 需跟一个值）`
+    `Unknown argument(s): ${unknownFlags.join(" ")}\n` +
+      `Available flags: ${KNOWN_FLAGS.join(" / ")} (--tag, --only, and --config need a value)`
   );
   process.exit(1);
 }
@@ -65,15 +65,15 @@ const configPath = path.resolve(ROOT, configPathArg || "pipeline.config.json");
 function loadConfig() {
   if (!fs.existsSync(configPath)) {
     console.error(
-      `找不到配置文件：${configPath}\n` +
-        `从模板复制 pipeline.config.example.json 到项目根并改名为 pipeline.config.json。`
+      `Config file not found: ${configPath}\n` +
+        "Copy pipeline.config.example.json to the project root as pipeline.config.json."
     );
     process.exit(1);
   }
   try {
     return JSON.parse(fs.readFileSync(configPath, "utf8"));
   } catch (err) {
-    console.error(`配置文件不是合法 JSON：${configPath}\n${err.message}`);
+    console.error(`Invalid JSON config: ${configPath}\n${err.message}`);
     process.exit(1);
   }
 }
@@ -85,8 +85,8 @@ const ms = config.mirrorSync && typeof config.mirrorSync === "object" ? config.m
 
 if (!ms) {
   console.error(
-    'pipeline.config.json 里没有 "mirrorSync" 段。\n' +
-      "请参考 pipeline.config.example.json 添加镜像同步配置。"
+    'pipeline.config.json has no "mirrorSync" section.\n' +
+      "See pipeline.config.example.json for the mirrorSync configuration."
   );
   process.exit(1);
 }
@@ -95,7 +95,7 @@ const gitee = ms.gitee || null;
 const cnb = ms.cnb || null;
 
 if (!gitee && !cnb) {
-  console.error("mirrorSync 段里 gitee 和 cnb 都是空的，至少配一个镜像平台。");
+  console.error("mirrorSync must configure at least one of gitee or cnb.");
   process.exit(1);
 }
 
@@ -203,7 +203,7 @@ async function uploadPUT(url, filePath) {
  */
 async function downloadFile(url, dest) {
   const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`下载失败 ${resp.status}: ${url}`);
+  if (!resp.ok) throw new Error(`Download failed (${resp.status}): ${url}`);
   const buf = Buffer.from(await resp.arrayBuffer());
   fs.writeFileSync(dest, buf);
   return buf.length;
@@ -215,7 +215,7 @@ function ghReady() {
     execSync("gh --version", { stdio: "pipe" });
   } catch {
     console.error(
-      "\n本脚本需要 GitHub CLI（gh）作为数据源：到 https://cli.github.com 安装，然后 `gh auth login`。"
+      "\nThis script requires GitHub CLI (gh). Install it from https://cli.github.com and run `gh auth login`."
     );
     process.exit(1);
   }
@@ -238,8 +238,8 @@ function getGitHubRelease(tag) {
     );
     return JSON.parse(json);
   } catch (err) {
-    console.error(`\n读取 GitHub Release ${tag} 失败：${err.message}`);
-    console.error("请确认 tag 已在 GitHub 发布：gh release view " + tag);
+    console.error(`\nFailed to read GitHub Release ${tag}: ${err.message}`);
+    console.error("Confirm that the tag is published on GitHub: gh release view " + tag);
     process.exit(1);
   }
 }
@@ -248,7 +248,7 @@ function getGitHubRelease(tag) {
 async function syncToGitee(release, tmpDir) {
   const token = process.env[gitee.tokenEnv];
   if (!token) {
-    console.error(`\n[Gitee] 环境变量 ${gitee.tokenEnv} 未设置，跳过。`);
+    console.error(`\n[Gitee] Environment variable ${gitee.tokenEnv} is not set; skipping.`);
     return false;
   }
 
@@ -260,7 +260,7 @@ async function syncToGitee(release, tmpDir) {
   const body = (release.body || "").slice(0, 50000); // Gitee body 限制
   const targetBranch = gitee.targetBranch || "master";
 
-  console.log(`\n[Gitee] 同步 ${tagName} → ${owner}/${repoName}`);
+  console.log(`\n[Gitee] Syncing ${tagName} -> ${owner}/${repoName}`);
 
   // 1) push tag
   if (gitee.remote) {
@@ -269,13 +269,13 @@ async function syncToGitee(release, tmpDir) {
       try {
         shInherit(`git push "${gitee.remote}" "${tagName}"`);
       } catch {
-        console.log(`[Gitee] tag 可能已存在，继续…`);
+        console.log(`[Gitee] Tag may already exist; continuing...`);
       }
     }
   }
 
   if (dryRun) {
-    console.log(`[Gitee] (dry-run) 将创建 Release: ${name}`);
+    console.log(`[Gitee] (dry-run) Would create Release: ${name}`);
     return true;
   }
 
@@ -286,13 +286,13 @@ async function syncToGitee(release, tmpDir) {
     );
     if (existing && existing.id) {
       if (force) {
-        console.log(`[Gitee] Release 已存在 (id=${existing.id})，--force 先删除…`);
+        console.log(`[Gitee] Release already exists (id=${existing.id}); --force will delete it first.`);
         await fetchJSON(
           `${apiBase}/repos/${owner}/${repoName}/releases/${existing.id}?access_token=${token}`,
           { method: "DELETE" }
         );
       } else {
-        console.log(`[Gitee] Release ${tagName} 已存在 (id=${existing.id})，跳过。加 --force 可覆盖。`);
+        console.log(`[Gitee] Release ${tagName} already exists (id=${existing.id}); skipping. Use --force to replace it.`);
         return true;
       }
     }
@@ -313,11 +313,11 @@ async function syncToGitee(release, tmpDir) {
     body: createBody.toString(),
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
   });
-  console.log(`[Gitee] ✓ Release 创建成功 (id=${created.id})`);
+  console.log(`[Gitee] [ok] Release created (id=${created.id})`);
 
   // 4) 上传 assets
   if (skipAssets || !release.assets || release.assets.length === 0) {
-    console.log(`[Gitee] ${skipAssets ? "已跳过产物上传（--skip-assets）" : "无产物"}`);
+    console.log(`[Gitee] ${skipAssets ? "Asset upload skipped (--skip-assets)" : "No assets"}`);
     return true;
   }
 
@@ -328,27 +328,27 @@ async function syncToGitee(release, tmpDir) {
       // 从本地构建产物目录取（不重复下载）
       localPath = path.join(ROOT, "dist", asset.name);
       if (!fs.existsSync(localPath)) {
-        console.log(`[Gitee] 本地未找到 ${asset.name}，改为从 GitHub 下载…`);
+        console.log(`[Gitee] Local asset ${asset.name} not found; downloading from GitHub...`);
         localPath = null;
       }
     }
     if (!localPath) {
       localPath = path.join(tmpDir, asset.name);
-      console.log(`[Gitee] 下载 ${asset.name} …`);
+      console.log(`[Gitee] Downloading ${asset.name}...`);
       const size = await downloadFile(asset.browser_download_url || asset.url, localPath);
       console.log(`[Gitee]   ${(size / 1024).toFixed(0)} KiB`);
     }
 
-    console.log(`[Gitee] 上传附件 ${asset.name} → release ${created.id}`);
+    console.log(`[Gitee] Uploading ${asset.name} -> release ${created.id}`);
     await uploadMultipart(
       `${apiBase}/repos/${owner}/${repoName}/releases/${created.id}/attach_files`,
       { access_token: token },
       [{ path: localPath, name: asset.name }]
     );
-    console.log(`[Gitee]   ✓ ${asset.name}`);
+    console.log(`[Gitee]   [ok] ${asset.name}`);
   }
 
-  console.log(`[Gitee] 同步完成：https://gitee.com/${owner}/${repoName}/releases/tag/${tagName}`);
+  console.log(`[Gitee] Sync complete: https://gitee.com/${owner}/${repoName}/releases/tag/${tagName}`);
   return true;
 }
 
@@ -356,7 +356,7 @@ async function syncToGitee(release, tmpDir) {
 async function syncToCNB(release, tmpDir) {
   const token = process.env[cnb.tokenEnv];
   if (!token) {
-    console.error(`\n[CNB] 环境变量 ${cnb.tokenEnv} 未设置，跳过。`);
+    console.error(`\n[CNB] Environment variable ${cnb.tokenEnv} is not set; skipping.`);
     return false;
   }
 
@@ -367,7 +367,7 @@ async function syncToCNB(release, tmpDir) {
   const name = release.name || tagName;
   const body = release.body || "";
 
-  console.log(`\n[CNB] 同步 ${tagName} → ${repoSlug}`);
+  console.log(`\n[CNB] Syncing ${tagName} -> ${repoSlug}`);
 
   // 1) push tag
   if (cnb.remote) {
@@ -376,13 +376,13 @@ async function syncToCNB(release, tmpDir) {
       try {
         shInherit(`git push "${cnb.remote}" "${tagName}"`);
       } catch {
-        console.log(`[CNB] tag 可能已存在，继续…`);
+        console.log(`[CNB] Tag may already exist; continuing...`);
       }
     }
   }
 
   if (dryRun) {
-    console.log(`[CNB] (dry-run) 将创建 Release: ${name}`);
+    console.log(`[CNB] (dry-run) Would create Release: ${name}`);
     return true;
   }
 
@@ -394,13 +394,13 @@ async function syncToCNB(release, tmpDir) {
     );
     if (existing && existing.id) {
       if (force) {
-        console.log(`[CNB] Release 已存在 (id=${existing.id})，--force 先删除…`);
+        console.log(`[CNB] Release already exists (id=${existing.id}); --force will delete it first.`);
         await fetchJSON(`${apiBase}/${repoSlug}/-/releases/${existing.id}`, {
           method: "DELETE",
           headers: authHeaders,
         });
       } else {
-        console.log(`[CNB] Release ${tagName} 已存在 (id=${existing.id})，跳过。加 --force 可覆盖。`);
+        console.log(`[CNB] Release ${tagName} already exists (id=${existing.id}); skipping. Use --force to replace it.`);
         return true;
       }
     }
@@ -420,11 +420,11 @@ async function syncToCNB(release, tmpDir) {
       prerelease: false,
     }),
   });
-  console.log(`[CNB] ✓ Release 创建成功 (id=${created.id})`);
+  console.log(`[CNB] [ok] Release created (id=${created.id})`);
 
   // 4) 上传 assets
   if (skipAssets || !release.assets || release.assets.length === 0) {
-    console.log(`[CNB] ${skipAssets ? "已跳过产物上传（--skip-assets）" : "无产物"}`);
+    console.log(`[CNB] ${skipAssets ? "Asset upload skipped (--skip-assets)" : "No assets"}`);
     return true;
   }
 
@@ -434,19 +434,19 @@ async function syncToCNB(release, tmpDir) {
     if (localAssets) {
       localPath = path.join(ROOT, "dist", asset.name);
       if (!fs.existsSync(localPath)) {
-        console.log(`[CNB] 本地未找到 ${asset.name}，改为从 GitHub 下载…`);
+        console.log(`[CNB] Local asset ${asset.name} not found; downloading from GitHub...`);
         localPath = null;
       }
     }
     if (!localPath) {
       localPath = path.join(tmpDir, asset.name);
-      console.log(`[CNB] 下载 ${asset.name} …`);
+      console.log(`[CNB] Downloading ${asset.name}...`);
       const size = await downloadFile(asset.browser_download_url || asset.url, localPath);
       console.log(`[CNB]   ${(size / 1024).toFixed(0)} KiB`);
     }
 
     // CNB 的 asset 上传是两步：先请求 upload-url，再 PUT 文件
-    console.log(`[CNB] 上传附件 ${asset.name} → release ${created.id}`);
+    console.log(`[CNB] Uploading ${asset.name} -> release ${created.id}`);
     const uploadInfo = await fetchJSON(
       `${apiBase}/${repoSlug}/-/releases/${created.id}/asset-upload-url`,
       {
@@ -464,10 +464,10 @@ async function syncToCNB(release, tmpDir) {
         { method: "POST", headers: authHeaders }
       );
     }
-    console.log(`[CNB]   ✓ ${asset.name}`);
+    console.log(`[CNB]   [ok] ${asset.name}`);
   }
 
-  console.log(`[CNB] 同步完成：https://cnb.cool/${repoSlug}/-/releases/tag/${tagName}`);
+  console.log(`[CNB] Sync complete: https://cnb.cool/${repoSlug}/-/releases/tag/${tagName}`);
   return true;
 }
 
@@ -480,17 +480,17 @@ const tag = explicitTag
   : getLatestTag();
 
 if (!tag) {
-  console.error("推不出 tag：本地没有 git tag，请用 --tag 显式指定。");
+  console.error("Cannot resolve a tag: no local git tag exists; pass --tag explicitly.");
   process.exit(1);
 }
 
-console.log(`\n[mirror-sync] 仓库：${ROOT}`);
-console.log(`[mirror-sync] tag：${tag}${dryRun ? "   （dry-run）" : ""}`);
-console.log(`[mirror-sync] 镜像目标：${Object.entries(enabled).filter(([, v]) => v).map(([k]) => k).join(", ")}`);
+console.log(`\n[mirror-sync] Repository: ${ROOT}`);
+console.log(`[mirror-sync] Tag: ${tag}${dryRun ? "   (dry-run)" : ""}`);
+console.log(`[mirror-sync] Mirror targets: ${Object.entries(enabled).filter(([, v]) => v).map(([k]) => k).join(", ")}`);
 
 // 读 GitHub Release
 const release = getGitHubRelease(tag);
-console.log(`[mirror-sync] GitHub Release：${release.name || tag}，${(release.assets || []).length} 个产物`);
+console.log(`[mirror-sync] GitHub Release: ${release.name || tag}, ${(release.assets || []).length} asset(s)`);
 
 // 临时目录用于下载 assets
 const tmpDir = path.join(ROOT, `.mirror-sync-tmp-${Date.now()}`);
@@ -509,7 +509,7 @@ try {
     if (!result) ok = false;
   }
 } catch (err) {
-  console.error(`\n[mirror-sync] ✗ 出错：${err.message}`);
+  console.error(`\n[mirror-sync] [error] ${err.message}`);
   ok = false;
 } finally {
   // 清理临时目录
@@ -519,8 +519,8 @@ try {
 }
 
 if (ok) {
-  console.log(`\n[mirror-sync] ✓ 全部同步完成。`);
+  console.log(`\n[mirror-sync] [ok] All mirrors synced.`);
 } else {
-  console.error(`\n[mirror-sync] 部分同步失败，请查看上方日志。`);
+  console.error(`\n[mirror-sync] Some mirrors failed; see the log above.`);
   process.exit(1);
 }
