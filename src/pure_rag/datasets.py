@@ -19,10 +19,6 @@
 - `target_doc`：块的 metadata 命中 source + title（用于整篇文档，避免长文档只有首块被算命中）
 - `target_component` / `target_fault`：块为工单且部件与故障类型同时命中（用于口语化层——
   同一故障会有很多条工单，只要召回「同类」即算对，而非指定某一条）
-
-目标定位方式有两种，按数据特点选用：
-- `target_text`：块内容里必须包含该子串（用于 QA 对、故障案例这类唯一标识）
-- `target_doc`：块的 metadata 命中 source + title（用于整篇文档，避免长文档只有首块被算命中）
 """
 
 import json
@@ -331,7 +327,7 @@ def build_dataset(data_dir: str = "data") -> Dict:
 
     return {
         "description": "由语料自动推导的分层评测集，可用 eval --report --rebuild 重新生成",
-        "fingerprint": corpus_fingerprint(documents),
+        "fingerprint": corpus_fingerprint(documents, data_dir),
         "layers": LAYERS,
         "counts": {layer: sum(1 for item in unique if item["layer"] == layer)
                    for layer in LAYERS},
@@ -353,7 +349,7 @@ def load_dataset(data_dir: str = "data", rebuild: bool = False, verbose: bool = 
     if not rebuild and path.exists():
         with open(path, "r", encoding="utf-8") as f:
             cached = json.load(f)
-        current = corpus_fingerprint(load_documents(data_dir))
+        current = corpus_fingerprint(load_documents(data_dir), data_dir)
         if cached.get("fingerprint") == current:
             return cached
         if verbose:

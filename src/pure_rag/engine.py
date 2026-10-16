@@ -644,13 +644,26 @@ class RAGEngine:
         """
         question = (question or "").strip()
         if not question:
+            # 保持与正常返回一致的字段集，调用方（CLI / Web）不必为空问题做特例
             return {
                 "question": "",
+                "resolved_question": "",
                 "answer": "请输入有效的问题。",
                 "mode": "empty",
                 "retrieved_docs": [],
+                "citations": [],
+                "claims": [],
+                "card": None,
                 "confidence": {"coverage": 0.0, "matched": [], "missing": [],
-                               "refused": False},
+                               "matched_content": [], "terms": [],
+                               "refused": False, "reason": "empty_question"},
+                "combination": {"components": [], "faults": [], "invalid": [], "valid": []},
+                "alpha": 0.0,
+                "candidates": 0,
+                "variants": [],
+                "kg_context": "",
+                "kg_entities": [],
+                "timings": {"total": 0.0},
             }
 
         resolved = self._resolve_coreference(question, history)
@@ -706,6 +719,9 @@ class RAGEngine:
             "confidence": confidence,
             "combination": combination,
             "alpha": retrieval["alpha"],
+            # 候选规模与变体数：Web 界面与 JSON 调用方需要据此判断检索面有多宽
+            "candidates": retrieval["candidates"],
+            "variants": retrieval["variants"],
             "kg_context": retrieval["kg_context"],
             "kg_entities": retrieval["kg_entities"],
             "timings": {**retrieval["timings"],

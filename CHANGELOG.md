@@ -102,8 +102,50 @@
   - 该层**故意不进** `ANSWER_LAYERS`，因此不影响 CI 门禁与 `tune` 的优化目标（用户要求先只挂层、保留什么后续再定）
   - 评测集由 7 层 1420 条扩到 8 层 1473 条；README/CHANGELOG 同步
 
+### 新增
+- 编码与文档一致性（本轮维护）：
+  - `src/pure_rag/stdio.py`：标准流编码加固。终端保持原编码，被重定向时切 UTF-8，
+    编码不了的字符降级为转义（backslashreplace）、解码不了的字节降级为 U+FFFD，
+    命令行入口 `cli.main()` 统一调用
+  - 自有文档导入支持 GB18030：`loader.read_plain_text()` 按 UTF-8(含 BOM) → GB18030
+    依次尝试，两种都不行才报错（不再用 `errors="ignore"` 静默丢字节），
+    txt / md / json / csv 均走该路径
+  - `src/gen_readme_facts.py`：README「当前实测数据」块生成器（仅标准库），
+    从 `report.json` / `meta.json` / `knowledge_graph.json` / unittest 发现结果取数，
+    支持 `--check` 校验漂移；`.cnb.yml` 增加「文档事实一致性」阶段
+  - `tests/__init__.py`：包标记，避开 site-packages 同名 `tests` 常规包对仓内命名空间包的阴影
+  - `RAGEngine.query()` 返回体补上 `candidates` 与 `variants`（Web 页面徽章与 JSON 调用方需要）
+
+### 修复
+- Windows 中文代码页下命令行崩溃（重定向输出时必现）：
+  - `eval --robust` / `eval --negative`：`UnicodeEncodeError: 'gbk' codec can't encode '\u2713'`
+    ——逐条命中记号由 ✓/✗ 改为 ASCII 的 hit/miss，并在入口统一配好标准流
+  - `ablation`：配置名里的数学减号 U+2212 同样不能进 GBK，改为 ASCII `-`；进度输出的 `…` 改 `...`
+  - `chat /save`：管道输入的孤立代理项导致写 UTF-8 时报 `surrogates not allowed`，
+    现由 stdin 的 `errors="replace"` 从根上消除
+- `eval --robust` 改写层评测结构性报错：`Evaluator.measure()` 按三个名字解包
+  `_resolve_target()` 的五元组，招致 `ValueError: too many values to unpack`（整个鲁棒性评测跑不完）
+- `python -m unittest tests.test_pure_rag` 在装有同名 `tests` 包的环境下报
+  `ModuleNotFoundError`（CI 用的 clean 镜像不受影响，本地 Windows 必现）
+- Web 界面「候选」徽章永远显示 `undefined`：`query()` 未返回 `candidates` 字段
+- 空问题走 `query()` 时返回体缺 `alpha` / `timings` 等字段，CLI 与 Web 会 KeyError
+- `tune` 输出误导：进度行打印的是「历史最优」而非本轮参数（看起来像重复行），
+  收尾行把 `use_expansion` 写成「默认开启」，与引擎实际默认（已关闭）和消融结论相左；
+  同时 `num_questions` 参数原本被丢弃，现按「取前 N 条回答层查询」生效
+- `datasets.corpus_fingerprint()` 未把 `data_dir` 传给 `human_questions.json` 那一路，
+  用 `--data-dir` 指向其他目录时语料指纹会漏算该文件
+- `datasets.py` 模块注释里「目标定位方式」重复了两遍（三种/两种并存），保留三种的正确版本
+
 ### 变更
-- README 补充零依赖内核章节、实测指标与项目结构
+- 项目主线收敛为纯 Python：`AGENTS.md` 写入「项目自身需求」（只用标准库、检索与生成分离、
+  重依赖模块只作对照、入口必须走 `stdio.configure_streams()`、文档数字不写死）
+- README 结构调整：新增「本地部署（纯 Python，主线）」与脚本生成的「当前实测数据」块，
+  原「快速开始（完整研究版）」改为「快速开始（遗留研究版）」；技术栈分主线/遗留两张表；
+  贡献章节改写为本仓库实际的 main 单分支 + 三远端同步流程；文档不再用 emoji 装饰
+- `requirements.txt` 顶部注明只服务遗留研究版，主线零依赖
+- `.cnb.yml`：评测阶段不再 `--no-save`（需落 `report.json` 供文档一致性校验），
+  新增「文档事实一致性」阶段
+- 单元测试由 108 项增到 109 项（项数以 README 自动生成块为准，不再手写）
 
 ## [1.0.0] - 2026-01
 

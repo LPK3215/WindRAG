@@ -1,3 +1,9 @@
+# 遗留研究版（src/run_rag.py / build_index.py / gradio_app.py 等）专用依赖。
+#
+# 主线不需要本文件：src/pure_rag/ + src/rag_cli.py 只用 Python 标准库，
+# 干净解释器里直接 `python src/rag_cli.py build|ask|eval|serve` 即可跑通。
+# 新代码不许从这里加包；详见 AGENTS.md 的「项目自身需求」与 README「本地部署（纯 Python，主线）」。
+
 # 核心依赖
 sentence-transformers>=2.3.0
 rank-bm25>=0.2.2

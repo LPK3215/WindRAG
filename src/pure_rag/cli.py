@@ -22,6 +22,7 @@ from pathlib import Path
 from pure_rag.engine import RAGEngine
 from pure_rag.evaluator import Evaluator
 from pure_rag.highlight import ansi, clip_spans, to_markdown
+from pure_rag.stdio import configure_streams
 
 METHODS = ("hybrid", "vector", "bm25")
 
@@ -446,7 +447,8 @@ def build_parser() -> argparse.ArgumentParser:
     tune = subparsers.add_parser("tune", help="网格搜索最优检索参数")
     tune.add_argument("--quick", action="store_true", help="只跑 8 组快速网格")
     tune.add_argument("-k", "--top-k", type=int, default=3, help="评测用 top-k")
-    tune.add_argument("-n", "--num", type=int, default=15, help="评测问题数")
+    tune.add_argument("-n", "--num", type=int, default=None,
+                      help="只用前 N 条回答层查询（默认全用）")
     tune.set_defaults(func=cmd_tune)
 
     ablation = subparsers.add_parser("ablation", help="消融实验：逐项评估各模块贡献")
@@ -468,6 +470,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv=None) -> int:
+    configure_streams()
     args = build_parser().parse_args(argv)
     # 仅在真实终端下启用 ANSI 高亮，避免重定向到文件时出现转义字符
     args.color = not args.no_color and sys.stdout.isatty()

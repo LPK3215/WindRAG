@@ -349,8 +349,8 @@ class Evaluator:
                 "answer": result["answer"][:60],
             })
             if verbose:
-                mark = "✓" if refused else "✗"
-                print(f"  {mark} 覆盖率={result['confidence']['coverage']:.2f} {item['query'][:36]}")
+                mark = "hit" if refused else "miss"
+                print(f"  {mark:<4} 覆盖率={result['confidence']['coverage']:.2f} {item['query'][:36]}")
 
         by_type: Dict[str, Dict] = {}
         for item in details:
@@ -426,7 +426,9 @@ class Evaluator:
         details = []
 
         for item in items:
-            query, _target_text, _target_doc = self._resolve_target(item)
+            # _resolve_target 固定返回五元组（查询/目标文本/目标文档/目标部件/目标故障），
+            # 这里只按目标文本人工判定命中，其余字段置空不影响排名计算
+            query, _target_text, _target_doc, _component, _fault = self._resolve_target(item)
             retrieval = engine.retrieve(query, top_k=top_k, method=method)
             rank = self.rank_of_item(engine, item,
                                      [doc["doc_id"] for doc in retrieval["documents"]])
@@ -435,7 +437,8 @@ class Evaluator:
             ndcg += 1.0 / math.log2(rank + 1) if rank else 0.0
             details.append({"query": query, "rank": rank})
             if verbose:
-                print(f"  {'✓' if rank else '✗'} rank={rank or '-'}  {query[:40]}")
+                mark = "hit" if rank else "miss"
+                print(f"  {mark:<4} rank={rank or '-'}  {query[:40]}")
 
         total = len(items) or 1
         return {
@@ -499,8 +502,8 @@ class Evaluator:
             })
 
             if verbose:
-                mark = "✓" if 0 < rank <= top_k else "✗"
-                print(f"  {mark} [{index}/{len(pairs)}] rank={rank or '-'} "
+                mark = "hit" if 0 < rank <= top_k else "miss"
+                print(f"  {mark:<4} [{index}/{len(pairs)}] rank={rank or '-'} "
                       f"α={retrieval['alpha']:.2f} {elapsed:.3f}s  {question[:36]}")
 
         total = len(details)

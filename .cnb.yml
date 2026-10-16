@@ -4,11 +4,11 @@
 # 不装 requirements.txt（那是研究版才需要的重依赖）。
 #
 # 覆盖范围：
-#   - PR 门禁：PR 创建/更新、源分支 push  → tests + 评测（含鲁棒性与拒答）
+#   - PR 门禁：PR 创建/更新、源分支 push  → tests + 评测 + 文档事实校验
 #   - main 回归：合并后确认主干仍然可用
 # 只有 PR 分支会由 PR 事件触发，因此不再给兜底分支单独配 push，避免同一次推送跑两遍。
 
-# 复用的执行流程：单元测试 → 构建索引 → 评测（Recall 门禁 0.9）
+# 复用的执行流程：单元测试 → 构建索引 → 评测（Recall 门禁 0.9）→ 文档事实一致性
 .check-stages: &check-stages
   docker:
     image: python:3.11-slim
@@ -19,7 +19,9 @@
       script: |
         python src/simulate_corpus.py
         python src/rag_cli.py build
-        python src/rag_cli.py eval --report --no-save --min-recall 0.9
+        python src/rag_cli.py eval --report --min-recall 0.9
+    - name: 文档事实一致性
+      script: python src/gen_readme_facts.py --check
 
 main:
   pull_request:

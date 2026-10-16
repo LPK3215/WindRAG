@@ -78,7 +78,7 @@ CONFIGURATIONS: List[Dict] = [
         "method": "hybrid", "expand": True, "rerank": True, "kg": True,
     },
     {
-        "name": "⑨ 完整 − 新词发现",
+        "name": "⑨ 完整 - 新词发现",
         "note": "对照：关闭语料新词发现",
         "build": {"use_synonyms": True, "discover": False},
         "method": "hybrid", "expand": True, "rerank": True, "kg": True,
@@ -108,7 +108,7 @@ class AblationRunner:
 
         self.pairs = self.evaluator.load_qa_pairs(num_questions)
         self.negatives = self.evaluator.load_negatives()
-        # 分层评测集（114 条，由语料自动推导）比原来的 15 条 QA 更能区分配置差异
+        # 分层评测集（由语料自动推导，条数随语料变化）比原来的 15 条 QA 更能区分配置差异
         from pure_rag.datasets import load_dataset
 
         self.dataset = load_dataset(data_dir)
@@ -192,7 +192,7 @@ class AblationRunner:
         try:
             for index, config in enumerate(CONFIGURATIONS, 1):
                 if verbose:
-                    print(f"  [{index}/{len(CONFIGURATIONS)}] {config['name']} …")
+                    print(f"  [{index}/{len(CONFIGURATIONS)}] {config['name']} ...")
                 results.append(self._evaluate(config, Path(work_root)))
         finally:
             shutil.rmtree(work_root, ignore_errors=True)
@@ -231,7 +231,7 @@ class AblationRunner:
         try:
             for index, config in enumerate(configs, 1):
                 if verbose:
-                    print(f"  [{index}/{len(configs)}] {config['name']} …")
+                    print(f"  [{index}/{len(configs)}] {config['name']} ...")
                 results.append(self._evaluate(config, Path(work_root)))
         finally:
             shutil.rmtree(work_root, ignore_errors=True)

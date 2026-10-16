@@ -20,9 +20,9 @@ from pure_rag.evaluator import Evaluator
 
 # 完整网格：144 组，小语料约 10 秒
 #
-# 说明：这里不搜索 use_expansion —— 索引期同义词扩展已经覆盖了大部分场景，
-# 查询扩展在自召回/改写指标上的收益低于这批小样本的噪声水平，
-# 因此保持开启（可用 engine.use_expansion = False 手动关闭）。
+# 说明：这里不搜索 use_expansion —— 规模化语料的消融实验测出它是负收益
+# （案例召回 -5.33pp、整体召回 -1.94pp、延迟翻倍），引擎默认已关闭；
+# 需要重新评估时改 engine.use_expansion 或在 grid 里显式加上这一维。
 DEFAULT_GRID: Dict[str, List] = {
     "chunk_size": [300, 400, 600],
     "overlap": [60, 100],
@@ -48,17 +48,19 @@ class Tuner:
     """网格搜索调参器"""
 
     def __init__(self, data_dir: str = "data", index_dir: str = None,
-                 top_k: int = 3, num_questions: int = 15):
+                 top_k: int = 3, num_questions: int = None):
         self.data_dir = data_dir
         self.index_dir = Path(index_dir) if index_dir else Path(data_dir) / "pure_index"
         self.top_k = top_k
         self.evaluator = Evaluator(data_dir)
 
-        # 目标集用分层评测集里的"回答层"（共 80 条：QA 原句/改写/案例/文档），
-        # 比只用 15 条 QA 更能区分配置差异
+        # 目标集用分层评测集里的"回答层"（缺省全用，共 80 条：QA 原句/改写/案例/文档），
+        # 比只用 15 条 QA 更能区分配置差异；num_questions 只用于取前 N 条快速跑
         self.dataset = load_dataset(data_dir)
         self.positives = [item for item in self.dataset.get("items", [])
                           if item["layer"] in ANSWER_LAYERS]
+        if num_questions:
+            self.positives = self.positives[:num_questions]
 
     # -- 网格 ---------------------------------------------------------------
     @staticmethod
@@ -80,7 +82,10 @@ class Tuner:
         engine.build(chunk_size=params["chunk_size"], overlap=params["overlap"],
                      discover=params["discover"], verbose=False)
 
-        layered = self.evaluator.evaluate_layers(engine, self.dataset, self.top_k)
+        layered = self.evaluator.evaluate_layers(engine, {
+            **self.dataset,
+            "items": self.positives,
+        }, self.top_k)
         buckets = [bucket for name, bucket in layered["layers"].items()
                    if name in ANSWER_LAYERS]
         answers = sum(bucket["answer_count"] for bucket in buckets) or 1
@@ -109,18 +114,24 @@ class Tuner:
         start = time.time()
         results: List[Dict] = []
         step = max(1, len(combos) // 10)
+        best: Dict = {}
 
         with tempfile.TemporaryDirectory(prefix="pure_rag_tune_") as tmp:
             work_dir = Path(tmp)
             for index, params in enumerate(combos, 1):
-                results.append({**params, **self.evaluate_params(params, work_dir)})
-                if verbose and index % step == 0:
-                    best = max(results, key=lambda item: item["score"])
-                    print(f"  [{index}/{len(combos)}] score={best['score']:.4f} "
-                          f"召回={best['recall']:.0%} "
-                          f"改写={best['rewrite_recall']:.0%} mrr={best['mrr']:.4f} "
-                          f"(chunk={best['chunk_size']} α={best['alpha_override']} "
-                          f"λ={best['mmr_lambda']} disc={best['discover']})")
+                current = {**params, **self.evaluate_params(params, work_dir)}
+                results.append(current)
+                if not best or current["score"] > best["score"]:
+                    best = current
+                if verbose and (index % step == 0 or index == len(combos)):
+                    # 打印当前这一组，最优行额外标记，避免把“历史最优”误读成“本轮参数”
+                    flag = "  <- 当前最优" if current is best else ""
+                    print(f"  [{index}/{len(combos)}] score={current['score']:.4f} "
+                          f"召回={current['recall']:.0%} "
+                          f"改写={current['rewrite_recall']:.0%} "
+                          f"mrr={current['mrr']:.4f} "
+                          f"(chunk={current['chunk_size']} α={current['alpha_override']} "
+                          f"λ={current['mmr_lambda']} disc={current['discover']}){flag}")
 
         results.sort(key=lambda item: (-item["score"], -item["recall"], -item["mrr"]))
         best = results[0]
@@ -132,7 +143,7 @@ class Tuner:
             print(f"  chunk_size={best['chunk_size']} overlap={best['overlap']} "
                   f"discover={best['discover']}")
             print(f"  alpha_override={best['alpha_override']} mmr_lambda={best['mmr_lambda']} "
-                  f"use_expansion={best.get('use_expansion', True)}（默认开启，未参与搜索）")
+                  f"use_expansion={best.get('use_expansion', False)}（未参与搜索，沿用引擎默认）")
             print(f"  Recall@{self.top_k}：回答层 {best['recall']:.2%} / "
                   f"改写层 {best['rewrite_recall']:.2%}")
             print(f"  MRR={best['mrr']:.4f} nDCG={best['ndcg']:.4f} score={best['score']:.4f}")

@@ -21,6 +21,21 @@ GENERATED_DIR_NAME = "generated"
 SUPPORTED_SUFFIXES = (".txt", ".md", ".markdown", ".json", ".csv", ".docx")
 _PARAGRAPH_BREAKS = ("</w:p>", "<w:br/>", "<w:cr/>")
 
+# 纯文本类文件的候选编码：UTF-8（含 BOM）优先，再试中文 Windows 下常见的 GB18030
+# （GB18030 向后兼容 GBK/GB2312）。两者都失败时报错，不静默丢字节。
+_TEXT_ENCODINGS = ("utf-8-sig", "gb18030")
+
+
+def read_plain_text(path: Path) -> str:
+    """按候选编码读纯文本（标准库实现，不依赖 chardet）"""
+    last_error = None
+    for encoding in _TEXT_ENCODINGS:
+        try:
+            return path.read_text(encoding=encoding)
+        except UnicodeDecodeError as exc:
+            last_error = exc
+    raise last_error
+
 
 def _read_docx(path: Path) -> str:
     """解析 .docx：读取 word/document.xml，按段落断开后剥离标签"""
@@ -43,15 +58,14 @@ def _flatten_json_item(item) -> str:
 
 
 def _read_json_doc(path: Path) -> str:
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = json.loads(read_plain_text(path))
     items = data if isinstance(data, list) else [data]
     return "\n\n".join(block for block in (_flatten_json_item(i) for i in items) if block)
 
 
 def _read_csv_doc(path: Path) -> str:
     """CSV：每行拼成"列名: 值"，保持列语义不丢失"""
-    with path.open(encoding="utf-8-sig", newline="") as handle:
-        rows = list(csv.DictReader(handle))
+    rows = list(csv.DictReader(read_plain_text(path).splitlines()))
     lines = []
     for index, row in enumerate(rows, 1):
         pairs = "; ".join(f"{key}: {value}" for key, value in row.items() if value)
@@ -62,7 +76,7 @@ def _read_csv_doc(path: Path) -> str:
 
 def _read_markdown(path: Path) -> str:
     """Markdown：去掉标题井号、代码围栏与强调符号，只保留可检索的正文"""
-    text = path.read_text(encoding="utf-8", errors="ignore")
+    text = read_plain_text(path)
     text = re.sub(r"^\s{0,3}#{1,6}\s*", "", text, flags=re.M)      # 标题
     text = re.sub(r"^\s*```.*$", "", text, flags=re.M)             # 代码围栏
     return text.replace("**", "").replace("`", "")
@@ -79,7 +93,7 @@ def read_text_file(path: Path) -> str:
         return _read_csv_doc(path)
     if suffix in (".md", ".markdown"):
         return _read_markdown(path)
-    return path.read_text(encoding="utf-8", errors="ignore")
+    return read_plain_text(path)
 
 
 def load_user_documents(data_dir: str = "data") -> List[Dict]:

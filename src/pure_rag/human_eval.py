@@ -32,6 +32,8 @@ def _field(content: str, label: str) -> str:
 def _ensure_corpus() -> None:
     if (ROOT / "data" / "generated").exists():
         return
+    # 口语化层需要“同一故障多条工单”的干扰环境，因此缺语料时先生成（副作用公开可见）
+    print("[human_eval] 未检测到 data/generated，正在生成规模化测试语料（确定性，1203 篇）")
     sys.path.insert(0, str(ROOT / "src"))
     from simulate_corpus import generate, save
 
@@ -39,6 +41,9 @@ def _ensure_corpus() -> None:
 
 
 def main(argv=None) -> int:
+    from pure_rag.stdio import configure_streams
+
+    configure_streams()
     _ensure_corpus()
     from pure_rag.engine import RAGEngine
 
