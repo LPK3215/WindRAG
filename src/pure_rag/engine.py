@@ -17,6 +17,7 @@ import json
 import os
 import shutil
 import time
+from copy import deepcopy
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -100,15 +101,23 @@ class RAGEngine:
     # ------------------------------------------------------------------
     # 初始化辅助
     # ------------------------------------------------------------------
+    @staticmethod
+    def _configured_api_key() -> str:
+        """读取接口密钥：优先通用键 LLM_API_KEY，兼容旧的 MODELSCOPE_API_KEY"""
+        for key in (os.getenv("LLM_API_KEY", ""), os.getenv("MODELSCOPE_API_KEY", "")):
+            key = (key or "").strip()
+            if key and not key.startswith("your_"):
+                return key
+        return ""
+
     def _build_llm_client(self, use_llm: Optional[bool]) -> Optional[LLMClient]:
         """按配置决定是否启用 LLM（默认自动探测环境变量）"""
         if use_llm is False or os.getenv("DISABLE_LLM", "false").lower() == "true":
             return None
-        if use_llm is None and not os.getenv("MODELSCOPE_API_KEY"):
+        api_key = self._configured_api_key()
+        if use_llm is None and not api_key:
             return None
-
-        api_key = os.getenv("MODELSCOPE_API_KEY", "")
-        if not api_key or api_key.startswith("your_"):
+        if not api_key:
             return None
 
         from model_manager import create_default_model_manager   # 复用既有模型池（零依赖）
@@ -648,12 +657,14 @@ class RAGEngine:
             return {
                 "question": "",
                 "resolved_question": "",
+                "cached": False,
                 "answer": "请输入有效的问题。",
                 "mode": "empty",
                 "retrieved_docs": [],
                 "citations": [],
                 "claims": [],
                 "card": None,
+                "llm_error": None,
                 "confidence": {"coverage": 0.0, "matched": [], "missing": [],
                                "matched_content": [], "terms": [],
                                "refused": False, "reason": "empty_question"},
@@ -671,7 +682,12 @@ class RAGEngine:
         use_rerank = self.use_rerank if use_rerank is None else use_rerank
         cache_key = (resolved, top_k, method, alpha, use_kg, use_rerank, threshold)
         if use_cache and cache_key in self._cache:
-            return dict(self._cache[cache_key])
+            # 返回深副本：调用方（如 Web 层）会就地加工结果（删 spans、加 content_html），
+            # 共享同一对象会把缓存里的回答污染成缺字段状态
+            cached_result = deepcopy(self._cache[cache_key])
+            # 命中缓存时 timings 是上一次的真值，不标出来会让界面把“秒回”当成“真的跳了模型”
+            cached_result["cached"] = True
+            return cached_result
 
         self.ensure_loaded()
         begin = time.time()
@@ -700,6 +716,7 @@ class RAGEngine:
                                                threshold, reason, combination),
                 "mode": "refused",
                 "citations": [],
+                "llm_error": None,
             }
         else:
             confidence["refused"] = False
@@ -710,8 +727,11 @@ class RAGEngine:
         result = {
             "question": question,
             "resolved_question": resolved,
+            "cached": False,
             "answer": generation["answer"],
             "mode": generation["mode"],
+            # LLM 调用失败但退回抽取式时，降级原因随结果一并返回
+            "llm_error": generation.get("llm_error"),
             "retrieved_docs": retrieval["documents"],
             "citations": generation["citations"],
             "claims": generation.get("claims", []),
@@ -731,7 +751,7 @@ class RAGEngine:
         if use_cache:
             if len(self._cache) >= self._cache_size:
                 self._cache.pop(next(iter(self._cache)))
-            self._cache[cache_key] = result
+            self._cache[cache_key] = deepcopy(result)
         return result
 
     @staticmethod
@@ -769,6 +789,9 @@ class RAGEngine:
             ) if self.chunks else 0,
             "built_at": self.built_at,
             "index_dir": str(self.index_dir),
+            # llm_configured 只看是否配了客户端；llm_enabled 是当下可用状态，
+            # 模型池连续失败后会进入冷却期，此时配了也显示 false
+            "llm_configured": bool(self.generator.llm_client),
             "llm_enabled": bool(self.generator.llm_client and self.generator.llm_client.available),
             "kg": kg_stats,
             "tuning": self.tuning or "默认参数（可运行 tune 子命令搜索）",

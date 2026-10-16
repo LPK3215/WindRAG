@@ -87,6 +87,14 @@ def build_fault_card(documents: List[Dict]) -> Optional[Dict]:
     return None
 
 
+# 错误体回读上限（字符），避免异常信息里塞进整个响应
+MAX_ERROR_BODY_CHARS = 300
+
+# 思维链模型（如 glm-z1-flash）会把推理过程直接写在正文里返回，
+# 送给用户前得切掉，否则答案开头就是一段 <think> 推演
+THINK_CLOSE_TAG = "</think>"
+
+
 class LLMClient:
     """
     OpenAI 兼容接口客户端（urllib 实现）
@@ -94,7 +102,7 @@ class LLMClient:
     模型池来自 src/model_manager.py（本身零依赖），支持失败自动切换模型。
     """
 
-    def __init__(self, model_manager=None, timeout: int = 60, max_attempts: int = 3):
+    def __init__(self, model_manager=None, timeout: int = 90, max_attempts: int = 3):
         self.model_manager = model_manager
         self.timeout = timeout
         self.max_attempts = max_attempts
@@ -108,7 +116,7 @@ class LLMClient:
 
     def chat(self, prompt: str, system_prompt: str = SYSTEM_PROMPT,
              temperature: float = 0.7, max_tokens: int = 600) -> Optional[str]:
-        """调用对话接口，全部模型失败时返回 None"""
+        """调用对话接口，全部模型失败时返回 None（失败原因留在 last_error）"""
         for _ in range(self.max_attempts):
             model = self.model_manager.get_current_model()
             if not model:
@@ -121,6 +129,26 @@ class LLMClient:
                 self.last_error = f"{model.name}: {exc}"
                 self.model_manager.report_failure(model.name, str(exc))
         return None
+
+    @staticmethod
+    def _describe_http_error(exc: urllib.error.HTTPError) -> str:
+        """把服务端错误体里的 code/msg 取出来，区分过载/无权限/余额不足这类不同失败原因"""
+        try:
+            body = exc.read().decode("utf-8", "ignore")[:MAX_ERROR_BODY_CHARS]
+        except OSError:
+            body = ""
+        detail = body.strip()
+        try:
+            parsed = json.loads(body)
+            if isinstance(parsed, dict):
+                error = parsed.get("error", parsed)
+                if isinstance(error, dict):
+                    code = error.get("code") or error.get("err_code") or parsed.get("code") or ""
+                    message = error.get("message") or error.get("msg") or ""
+                    detail = " ".join(part for part in (str(code), message) if part) or detail
+        except ValueError:
+            pass
+        return f"HTTP {exc.code} {detail}".strip()
 
     def _post(self, model, prompt: str, system_prompt: str,
               temperature: float, max_tokens: int) -> str:
@@ -143,9 +171,30 @@ class LLMClient:
             },
             method="POST",
         )
-        with urllib.request.urlopen(request, timeout=self.timeout) as response:
-            data = json.loads(response.read().decode("utf-8"))
-        return data["choices"][0]["message"]["content"].strip()
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            # 带上服务端给出的 code/msg，否则只能看到 "HTTP Error 429" 分不出是过载还是收费档
+            # 模型名由 chat() 统一前缀，这里不重复
+            raise RuntimeError(self._describe_http_error(exc)) from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"网络不可达（{exc.reason}）") from exc
+        except TimeoutError as exc:
+            # urllib 在 urlopen 阶段抛 HTTPError/URLError，Body 读满时可能冒 TimeoutError
+            raise RuntimeError(f"响应超时（{self.timeout}s）") from exc
+
+        message = data["choices"][0]["message"]
+        content = (message.get("content") or "").strip()
+        if not content:
+            # 思维链模型有时只填 reasoning_content，不填 content
+            content = (message.get("reasoning_content") or "").strip()
+        if THINK_CLOSE_TAG in content:
+            content = content.rsplit(THINK_CLOSE_TAG, 1)[1].strip()
+        if not content:
+            raise RuntimeError(f"返回内容为空（finish_reason="
+                               f"{data['choices'][0].get('finish_reason')}）")
+        return content
 
 
 class AnswerGenerator:
@@ -179,14 +228,25 @@ class AnswerGenerator:
 
         documents = self._filter_by_score(documents)
         card = build_fault_card(documents)
-        if self.llm_client and self.llm_client.available:
-            answer = self.llm_client.chat(self._build_prompt(question, documents, kg_context))
-            if answer:
-                return {"answer": answer, "mode": "llm",
-                        "citations": self._citations(documents),
-                        "claims": [], "card": card}
+        llm_error = None
+        if self.llm_client:
+            if self.llm_client.available:
+                answer = self.llm_client.chat(self._build_prompt(question, documents, kg_context))
+                if answer:
+                    return {"answer": answer, "mode": "llm",
+                            "citations": self._citations(documents),
+                            "claims": [], "card": card}
+                llm_error = self.llm_client.last_error
+            else:
+                # 模型池全部处于冷却期时连试都不试；不告知的话用户只看得到 extractive，
+                # 不知道是大模型挂了还是本来就没配
+                llm_error = (self.llm_client.last_error
+                             or "模型池均不可用（冷却中），本轮未调用 LLM")
 
-        return self._extractive(question, documents, kg_context, idf_lookup, card)
+        result = self._extractive(question, documents, kg_context, idf_lookup, card)
+        if llm_error:
+            result["llm_error"] = llm_error
+        return result
 
     # -- 抽取式生成 ---------------------------------------------------------
     def _extractive(self, question: str, documents: List[Dict], kg_context: str,
@@ -313,6 +373,8 @@ class AnswerGenerator:
         return [
             {
                 "index": index,
+                # doc_id 用于把引用编号回映射到检索列表，Web 才能标注哪篇是 [N]
+                "doc_id": document.get("doc_id"),
                 "source": document.get("metadata", {}).get("source", "unknown"),
                 "title": document.get("metadata", {}).get("title", ""),
                 "score": round(float(document.get("score", 0.0)), 4),
@@ -322,13 +384,20 @@ class AnswerGenerator:
 
     # -- LLM 生成 -----------------------------------------------------------
     def _build_prompt(self, question: str, documents: List[Dict], kg_context: str) -> str:
+        """
+        资料编号列表：知识图谱作为最后一条资料入列，而不是另起【知识图谱信息】段落。
+
+        单独开一段带标题的区块时，模型会把“【知识图谱信息】”这类内部标签当正文引用出来。
+        """
         blocks = []
         for index, document in enumerate(documents, 1):
             blocks.append(f"[资料{index}] 来源：{self._source_name(document)}\n{document['content']}")
+        if kg_context:
+            blocks.append(f"[资料{len(blocks) + 1}] 来源：知识图谱\n{kg_context}")
         context = "\n\n".join(blocks)
-        graph = f"\n\n【知识图谱信息】\n{kg_context}" if kg_context else ""
         return (
-            f"参考资料如下：\n\n{context}{graph}\n\n"
+            f"参考资料如下：\n\n{context}\n\n"
             f"用户问题：{question}\n\n"
-            "请基于上述资料作答，并在关键结论后标注资料编号（如 [1]）。"
+            "请基于上述资料作答，并在关键结论后标注资料编号（如 [1]）；"
+            "不要把「资料」「来源」这类标签写进答案。"
         )

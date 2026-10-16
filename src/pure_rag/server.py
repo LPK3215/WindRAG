@@ -113,6 +113,10 @@ INDEX_HTML = """<!doctype html>
 const esc = s => String(s).replace(/[&<>"']/g,
   ch => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[ch]));
 
+// LLM 常返回 Markdown 片段，而答案区是纯文本渲染；这里只做一层转义后的加粗转换，
+// 不引入 Markdown 库（先 esc 再替换，注入面已封闭）
+const mdLite = s => esc(s).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
 const examples = ["齿轮箱温度过高应该怎么处理？", "变速箱异响怎么排查？",
                   "偏航系统的工作原理是什么？", "ISO VG 320齿轮油更换周期",
                   "如何提高风电机组的发电效率？"];
@@ -148,13 +152,19 @@ async function run() {
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
 
-    document.getElementById("answer").textContent = data.answer;
+    document.getElementById("answer").innerHTML = mdLite(data.answer);
+    if (data.llm_error) {
+      document.getElementById("err").textContent = "LLM 调用失败，本条答案退回抽取式：" + data.llm_error;
+    }
     const badges = document.getElementById("badges");
     badges.innerHTML = "";
-    [["α", data.alpha.toFixed(3)], ["耗时", (data.timings.total*1000).toFixed(0)+" ms"],
-     ["生成方式", data.mode], ["候选", data.candidates],
-     ["图谱命中", data.kg_entities.map(e => e.name).join("、") || "无"]]
-      .forEach(([k, v]) => {
+    const badgeItems = [["α", data.alpha.toFixed(3)],
+      ["耗时", (data.timings.total*1000).toFixed(0) + " ms" + (data.cached ? "（缓存）" : "")],
+      ["生成方式", data.mode], ["候选", data.candidates],
+      ["图谱命中", data.kg_entities.map(e => e.name).join("、") || "无"]];
+    // 知识图谱在提示词里占最后一个资料编号，不标出来读者找不到 [N] 对应什么
+    if (data.kg_citation_index) badgeItems.push(["图谱引用", "[" + data.kg_citation_index + "]"]);
+    badgeItems.forEach(([k, v]) => {
         const b = document.createElement("div");
         b.className = "badge";
         b.innerHTML = k + " <b>" + v + "</b>";
@@ -172,13 +182,27 @@ async function run() {
       div.className = "doc";
       div.id = d.anchor || ("doc-" + (d.metadata || {}).chunk_id);
       const m = d.metadata || {};
-      div.innerHTML = `<div class="doc-head"><span>${esc(m.source || "-")} / ${esc(m.title || "-")} / chunk ${m.chunk_id ?? "-"}</span>
+      // 行首编号与答案里的 [N] 同一口径（由服务端按引用列表回映射），未被引用的标“未引用”
+      const cite = d.citation_index ? `[${d.citation_index}]` : "未引用";
+      div.innerHTML = `<div class="doc-head"><span>${cite} ${esc(m.source || "-")} / ${esc(m.title || "-")} / chunk ${m.chunk_id ?? "-"}</span>
                        <span>score ${d.score.toFixed(4)}</span></div>
                        <div class="doc-body"></div>
                        <div class="bar"><span style="width:${(d.score/max*100).toFixed(1)}%"></span></div>`;
       div.querySelector(".doc-body").innerHTML = d.content_html;
       docs.appendChild(div);
     });
+
+    // 答案里的 [N] 如果指向知识图谱，在来源区补一行同编号条目，否则这一引用无处可查
+    if (data.kg_citation_index && data.kg_context) {
+      const kgRow = document.createElement("div");
+      kgRow.className = "doc";
+      kgRow.id = "doc-kg";
+      kgRow.innerHTML = `<div class="doc-head"><span>[${data.kg_citation_index}] 知识图谱</span>
+                         <span>上下文</span></div>
+                         <div class="doc-body"></div>`;
+      kgRow.querySelector(".doc-body").textContent = data.kg_context;
+      docs.appendChild(kgRow);
+    }
   } catch (e) {
     document.getElementById("err").textContent = "查询失败：" + e.message;
     document.getElementById("answer").textContent = "";
@@ -285,12 +309,20 @@ class RAGRequestHandler(BaseHTTPRequestHandler):
         documents = result.get("retrieved_docs", [])
         spans_by_doc = {document.get("doc_id"): document.get("spans", []) for document in documents}
 
+        # 答案里的 [N] 编号属于生成用的引用列表（已按相关性下限过滤），
+        # 而下面列出的是全部检索结果，两者不是同一集合，按 doc_id 回映射才能对上
+        citation_by_doc = {citation.get("doc_id"): citation["index"]
+                           for citation in result.get("citations", [])}
+        if result.get("kg_context") and result.get("mode") == "llm":
+            result["kg_citation_index"] = len(result.get("citations", [])) + 1
+
         for document in documents:
             preview = document["content"][:PREVIEW_CHARS].replace("\n", " ")
             document["content_html"] = to_html(
                 preview, clip_spans(document.get("spans", []), PREVIEW_CHARS)
             )
             document["anchor"] = f"doc-{document.get('doc_id')}"
+            document["citation_index"] = citation_by_doc.get(document.get("doc_id"))
             document.pop("spans", None)
 
         for claim in result.get("claims", []):

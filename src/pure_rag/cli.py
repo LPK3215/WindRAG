@@ -91,13 +91,13 @@ def save_transcript(history, name: str = "", data_dir: str = "data") -> str:
     return str(path)
 
 
-def create_engine(args) -> RAGEngine:
-    """按命令行参数创建引擎"""
+def create_engine(args, use_llm: bool = None) -> RAGEngine:
+    """按命令行参数创建引擎（use_llm=False 可强制抽取式，保证评测可复现）"""
     engine = RAGEngine(
         data_dir=args.data_dir,
         index_dir=args.index_dir,
         use_kg=not args.no_kg,
-        use_llm=(False if args.no_llm else None),
+        use_llm=(False if args.no_llm else use_llm),
     )
     if getattr(args, "min_coverage", None) is not None:
         engine.min_coverage = float(args.min_coverage)
@@ -138,6 +138,8 @@ def cmd_ask(args) -> int:
           f"覆盖率 {confidence['coverage']:.0%} | "
           f"{result['timings']['total'] * 1000:.1f} ms）：")
     print(result["answer"])
+    if result.get("llm_error"):
+        print(f"\n[warn] LLM 调用失败，已退回抽取式答案：{result['llm_error']}")
     print_card(result.get("card"))
 
     if result["kg_entities"]:
@@ -225,6 +227,8 @@ def cmd_chat(args) -> int:
         result = engine.query(question, top_k=args.top_k, method=args.method,
                               alpha=args.alpha, history=history)
         print(f"\n助手 > {result['answer']}")
+        if result.get("llm_error"):
+            print(f"\n[warn] LLM 调用失败，本轮退回抽取式：{result['llm_error']}")
         print_card(result.get("card"))
         print(f"\n(α={result['alpha']:.3f} | 覆盖率 {result['confidence']['coverage']:.0%} | "
               f"{result['timings']['total'] * 1000:.0f} ms | "
@@ -245,7 +249,8 @@ def cmd_chat(args) -> int:
 
 
 def cmd_eval(args) -> int:
-    engine = create_engine(args)
+    # 评测默认走抽取式生成：指标要可复现，也不让上千条查询去砸免费额度
+    engine = create_engine(args, use_llm=(True if args.use_llm else False))
     evaluator = Evaluator(args.data_dir)
     if args.report:
         report = evaluator.build_report(engine, top_k=args.top_k, method=args.method,
@@ -434,6 +439,8 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--report-path", default="data/pure_index/report.md",
                           help="报告输出路径（同名 .json 一并写出）")
     evaluate.add_argument("--no-save", action="store_true", help="不保存报告文件")
+    evaluate.add_argument("--use-llm", action="store_true",
+                          help="评测时也调用 LLM 生成（默认只用抽取式，保证指标可复现且不耗额度）")
     evaluate.set_defaults(func=cmd_eval)
 
     explain = subparsers.add_parser("explain", help="查看检索打分明细（词项级贡献）")

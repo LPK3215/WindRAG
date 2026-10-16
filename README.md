@@ -441,6 +441,44 @@ python src/gen_readme_facts.py                       # 刷新 README 的“当�
 检索照常返回文档与命中词，生成层降级为抽取式答案（`mode` 字段会写成 `extractive`），
 不会因缺大模型而报错或空转。
 
+### 接入大模型（可选，仍不装任何包）
+
+生成层用标准库 `urllib` 直连 OpenAI 兼容接口，**不需要 SDK**（不要装 `zhipuai`）。
+`config.env`（已 gitignore，不会入库）里四个键即可：
+
+```env
+LLM_PROVIDER=zhipu            # zhipu | modelscope，决定默认服务地址与免费档模型池
+LLM_API_KEY=your_api_key_here
+LLM_MODELS=glm-4-flash-250414:1,glm-4-flash:2,glm-4.5-flash:3
+DISABLE_LLM=false
+```
+
+`LLM_MODELS` 格式为 `name:priority`，失败自动切下一个并进入 60s 冷却。
+**只把免费档放进池子**，否则真实消耗余额；本项目实测结果：
+
+| 模型 | 实测 | 处置 |
+|---|---|---|
+| glm-4-flash-250414 | 200，约 4.3s，正文干净 | 默认第 1 优先 |
+| glm-4-flash | 200，约 9.0s，正文干净 | 默认第 2 优先 |
+| glm-4.5-flash | 200，约 54s，正文干净（推理走 reasoning_content） | 默认兜底位 |
+| glm-z1-flash | 200，但把思维链写进 content，600 token 被推理吃完后没有正文 | 默认不入池 |
+| glm-4v-flash | 200，多模态（可读图） | 纯文本问答用不上 |
+| glm-4.7-flash | 429/1305 当前访问量过大 | 不入池 |
+| glm-4.6-flash | 403/1220 无权访问 | 不入池 |
+| glm-5.x / glm-4-air / airx / long / plus | 429/1113 余额不足（收费档） | 不得入池 |
+
+三条约束：
+
+- **评测不调模型**：`eval` / `ablation` / `tune` 默认强制抽取式（`eval --use-llm` 才开），
+  一千多条查询不应该去砸免费额度，也不能让非确定的生成污染指标。
+- **降级不静默**：LLM 失败或模型池全部冷却时，答案退回抽取式，并在 `llm_error` 里
+  带回报错原文（已含服务端 code/msg，能区分 1305 过载、1220 无权限、1113 余额不足），
+  命令行打 `[warn]` 行，Web 界面在答案下方显示红色提示。
+- **两个字段含义不同**：`stats` 里 `llm_configured` 只看配没配，`llm_enabled`
+  是当下可用状态（连续失败进入冷却后会是 false）。
+
+拒答判定在生成之前，所以弱相关问题根本不会去调模型；多轮 `chat` 与 Web 问答同样如此。
+
 Windows 下命令行输出会遇到代码页问题（重定向时尤为常见），入口统一调
 `pure_rag.stdio.configure_streams()` 处理：终端保持原编码，重定向时切 UTF-8，
 编码不了的字符降级为转义而不中断命令。自有文档导入也支持 UTF-8 与 GB18030 两种编码。

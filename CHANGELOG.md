@@ -115,8 +115,28 @@
     支持 `--check` 校验漂移；`.cnb.yml` 增加「文档事实一致性」阶段
   - `tests/__init__.py`：包标记，避开 site-packages 同名 `tests` 常规包对仓内命名空间包的阴影
   - `RAGEngine.query()` 返回体补上 `candidates` 与 `variants`（Web 页面徽章与 JSON 调用方需要）
+- 大模型生成接入（智谱免费档，仍零第三方依赖）：
+  - `create_default_model_manager()` 改为供应商感知：新增通用键 `LLM_PROVIDER` /
+    `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODELS`，未配时兼容旧的 `MODELSCOPE_*`；
+    zhipu 默认地址 `https://open.bigmodel.cn/api/paas/v4`，默认模型池只放实测可用的免费档
+    （glm-4-flash-250414 / glm-4-flash / glm-4.5-flash）
+  - `LLMClient` 错误可读化：回读服务端错误体里的 code/msg（上限 300 字符），
+    能区分 429/1305 过载、403/1220 无权限、429/1113 余额不足，不再只报 "HTTP Error 429"
+  - 降级不静默：`llm_error` 随结果返回，命令行打 `[warn]` 行、Web 显示红色提示；
+    模型池全部处于冷却期时也写明原因（之前这一分支是静默的）
+  - `stats` 拆分 `llm_configured`（配没配）与 `llm_enabled`（当下可用，冷却中为 false）
+  - 提示词重构：知识图谱作为最后一条编号资料入列，不再单独开【知识图谱信息】段落
+    （模型会把这类内部标签当正文引用出来）；同时切除 `<think>` 推理段、
+    `content` 为空时回读 `reasoning_content`（glm-z1-flash 实测会把 token 预算全花在推理上，
+    默认不入池）
+  - Web 引用对齐：来源行首标 `[N]`（按 `citations` 的 doc_id 回映射，未被引用标“未引用”），
+    知识图谱补一行同编号条目，徽章新增「图谱引用 [N]」与「耗时（缓存）」
 
 ### 修复
+- LLM 答案路径上的两个结构缺陷：
+  - `query()` 命中缓存时返回的是缓存里的同一个对象，Web 层就地 `pop("spans")` 会把缓存
+    改坏，下一个相同问题就没有高亮；现改为进出缓存都用深副本，并给出 `cached` 标记
+  - `citations` 缺 `doc_id`，导致界面无法把答案里的 `[N]` 对应到具体文档
 - Windows 中文代码页下命令行崩溃（重定向输出时必现）：
   - `eval --robust` / `eval --negative`：`UnicodeEncodeError: 'gbk' codec can't encode '\u2713'`
     ——逐条命中记号由 ✓/✗ 改为 ASCII 的 hit/miss，并在入口统一配好标准流
@@ -145,6 +165,8 @@
 - `requirements.txt` 顶部注明只服务遗留研究版，主线零依赖
 - `.cnb.yml`：评测阶段不再 `--no-save`（需落 `report.json` 供文档一致性校验），
   新增「文档事实一致性」阶段
+- `eval` 默认强制抽取式生成（新增 `--use-llm` 才走大模型）：保证指标可复现，
+  也不让上千条评测查询去砸免费额度；`ablation` 与 `tune` 本就 `use_llm=False`
 - 单元测试由 108 项增到 109 项（项数以 README 自动生成块为准，不再手写）
 
 ## [1.0.0] - 2026-01
