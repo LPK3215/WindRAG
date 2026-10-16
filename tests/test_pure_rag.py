@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
+from pure_rag.ablation import ALPHA_SWEEP, CONFIGURATIONS, AblationRunner
 from pure_rag.bm25 import BM25Index
 from pure_rag.chunker import build_index_text, chunk_text
 from pure_rag.cli import save_transcript
@@ -473,6 +474,37 @@ class IncrementalAddTest(unittest.TestCase):
         self.engine.add_files([str(self.file)], verbose=False)
         content = self.engine.chunks[0]["content"]
         self.assertNotIn("#", content)
+
+
+class AblationTest(unittest.TestCase):
+    """消融实验：配置可跑通、指标结构完整、开关确实生效"""
+
+    def test_run_reports_all_configurations(self):
+        runner = AblationRunner(data_dir=os.path.join(ROOT, "data"), num_questions=5)
+        payload = runner.run(verbose=False)
+        self.assertEqual(len(payload["results"]), len(CONFIGURATIONS))
+        for item in payload["results"]:
+            for key in ("recall_at_k", "mrr", "ndcg_at_k", "rewrite_recall",
+                        "keyword_coverage", "refusal_rate", "avg_latency_ms"):
+                self.assertIn(key, item["metrics"])
+            self.assertLessEqual(item["metrics"]["recall_at_k"], 1.0)
+            self.assertGreaterEqual(item["metrics"]["recall_at_k"], 0.0)
+        self.assertIn("| 配置 |", payload["markdown"])
+
+    def test_alpha_sweep_includes_adaptive_row(self):
+        runner = AblationRunner(data_dir=os.path.join(ROOT, "data"), num_questions=5)
+        rows = runner.sweep_alpha(verbose=False)
+        self.assertEqual(len(rows), len(ALPHA_SWEEP) + 1)
+        self.assertIsNone(rows[-1]["config"]["alpha"])
+        self.assertEqual(rows[0]["config"]["alpha"], ALPHA_SWEEP[0])
+
+    def test_synonym_switch_controls_tokenizer(self):
+        enabled = Tokenizer(use_synonyms=True)
+        disabled = Tokenizer(use_synonyms=False)
+        self.assertIn("变速箱", enabled.cut_for_index("齿轮箱"))
+        self.assertNotIn("变速箱", disabled.cut_for_index("齿轮箱"))
+        self.assertNotIn("变速箱", disabled.cut("变速箱"))
+        self.assertIn("变速箱", enabled.cut("变速箱"))
 
 
 class SentenceOffsetTest(unittest.TestCase):

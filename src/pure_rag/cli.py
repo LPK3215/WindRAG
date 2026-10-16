@@ -8,6 +8,7 @@
     python src/rag_cli.py eval                  跑评测
     python src/rag_cli.py explain "问题"        查看检索打分明细
     python src/rag_cli.py tune                  网格搜索最优参数
+    python src/rag_cli.py ablation              消融实验（各模块贡献对比表）
     python src/rag_cli.py stats                 查看索引统计
     python src/rag_cli.py serve                 启动零依赖 Web 界面
 """
@@ -310,6 +311,30 @@ def cmd_add(args) -> int:
     return 0
 
 
+def cmd_ablation(args) -> int:
+    from pure_rag.ablation import AblationRunner
+
+    runner = AblationRunner(data_dir=args.data_dir, top_k=args.top_k,
+                            num_questions=args.num, index_dir=args.index_dir)
+    print("开始消融实验（每组配置都重建索引后评测）…")
+    payload = runner.run()
+    print("\n固定 α 扫描…")
+    payload["alpha_sweep"] = runner.sweep_alpha()
+
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        print("\n## 消融实验\n")
+        print(payload["markdown"])
+        print("\n## 固定 α 扫描（与自适应 α 对照）\n")
+        print(runner.to_markdown(payload["alpha_sweep"]))
+        print(f"\n数据：{payload['data']}；总耗时 {payload['elapsed']}s")
+
+    if not args.no_save:
+        print(f"\n结果已保存到 {runner.save(payload)}")
+    return 0
+
+
 def cmd_serve(args) -> int:
     from pure_rag.server import serve
 
@@ -393,6 +418,13 @@ def build_parser() -> argparse.ArgumentParser:
     tune.add_argument("-k", "--top-k", type=int, default=3, help="评测用 top-k")
     tune.add_argument("-n", "--num", type=int, default=15, help="评测问题数")
     tune.set_defaults(func=cmd_tune)
+
+    ablation = subparsers.add_parser("ablation", help="消融实验：逐项评估各模块贡献")
+    ablation.add_argument("-n", "--num", type=int, default=15, help="评测问题数")
+    ablation.add_argument("-k", "--top-k", type=int, default=3, help="评测用 top-k")
+    ablation.add_argument("--json", action="store_true", help="以 JSON 输出完整结果")
+    ablation.add_argument("--no-save", action="store_true", help="不落盘")
+    ablation.set_defaults(func=cmd_ablation)
 
     stats = subparsers.add_parser("stats", help="查看索引统计")
     stats.set_defaults(func=cmd_stats)

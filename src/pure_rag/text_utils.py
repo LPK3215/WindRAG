@@ -130,9 +130,14 @@ class Tokenizer:
     因此新词发现得到的词典需要随索引一起持久化，加载索引时一并恢复。
     """
 
-    def __init__(self, extra_words: Iterable[str] = None, use_bigram: bool = True):
+    def __init__(self, extra_words: Iterable[str] = None, use_bigram: bool = True,
+                 use_synonyms: bool = True):
         # 词典 = 领域词 + 同义词表两端（保证"变速箱""漏油"这类说法能整体成词）+ 语料新词
-        self.words: Set[str] = set(DOMAIN_WORDS) | set(SYNONYMS) | set(ALIASES)
+        # use_synonyms=False 时关闭同义词打通与别名扩展，用于消融实验对照组
+        self.use_synonyms = use_synonyms
+        self.words: Set[str] = set(DOMAIN_WORDS)
+        if use_synonyms:
+            self.words |= set(SYNONYMS) | set(ALIASES)
         if extra_words:
             self.words |= {w for w in extra_words if len(w) >= 2}
         self.use_bigram = use_bigram
@@ -198,10 +203,11 @@ class Tokenizer:
                 if len(a) == 1 and len(b) == 1 and is_cjk(a) and is_cjk(b)
             ]
 
-        for token in tokens:
-            aliases = ALIASES.get(token)
-            if aliases:
-                expanded += aliases
+        if self.use_synonyms:
+            for token in tokens:
+                aliases = ALIASES.get(token)
+                if aliases:
+                    expanded += aliases
 
         return expanded
 

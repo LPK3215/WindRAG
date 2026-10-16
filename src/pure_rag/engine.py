@@ -55,7 +55,8 @@ class RAGEngine:
 
     def __init__(self, data_dir: str = "data", index_dir: str = None, use_kg: bool = True,
                  use_llm: Optional[bool] = None, kg_threshold: float = 0.2,
-                 cache_size: int = 64, config_path: str = None):
+                 cache_size: int = 64, config_path: str = None,
+                 use_synonyms: bool = True):
         self.data_dir = Path(data_dir)
         self.index_dir = Path(index_dir) if index_dir else self.data_dir / "pure_index"
 
@@ -63,7 +64,8 @@ class RAGEngine:
         config_path = config_path or (self.data_dir.parent / "config.env")
         load_env(config_path)
 
-        self.tokenizer = Tokenizer()
+        self.use_synonyms = use_synonyms
+        self.tokenizer = Tokenizer(use_synonyms=use_synonyms)
         self.terms: List[str] = []
         self.bm25 = BM25Index()
         self.tfidf = TfidfIndex()
@@ -81,6 +83,7 @@ class RAGEngine:
         self.mmr_lambda = float(self.tuning.get("mmr_lambda", MMR_LAMBDA))
         self.expansion_weight = float(self.tuning.get("expansion_weight", EXPANSION_WEIGHT))
         self.use_expansion = bool(self.tuning.get("use_expansion", True))
+        self.use_rerank = bool(self.tuning.get("use_rerank", True))
         self.alpha_override = self.tuning.get("alpha_override")
         self.chunk_size = int(self.tuning.get("chunk_size", DEFAULT_CHUNK_SIZE))
         self.overlap = int(self.tuning.get("overlap", DEFAULT_OVERLAP))
@@ -129,6 +132,7 @@ class RAGEngine:
         self.mmr_lambda = float(self.tuning.get("mmr_lambda", MMR_LAMBDA))
         self.expansion_weight = float(self.tuning.get("expansion_weight", EXPANSION_WEIGHT))
         self.use_expansion = bool(self.tuning.get("use_expansion", True))
+        self.use_rerank = bool(self.tuning.get("use_rerank", True))
         self.alpha_override = self.tuning.get("alpha_override")
         self.min_coverage = float(self.tuning.get("min_coverage", DEFAULT_MIN_COVERAGE))
         self._cache.clear()
@@ -136,7 +140,7 @@ class RAGEngine:
     def _apply_terms(self, terms: List[str]) -> None:
         """用语料发现的新词重建分词器，并同步到图谱与生成器"""
         self.terms = list(terms)
-        self.tokenizer = Tokenizer(extra_words=self.terms)
+        self.tokenizer = Tokenizer(extra_words=self.terms, use_synonyms=self.use_synonyms)
         self.generator.tokenizer = self.tokenizer
         if self.kg:
             self.kg.tokenizer = self.tokenizer
@@ -372,14 +376,17 @@ class RAGEngine:
     # 检索
     # ------------------------------------------------------------------
     def retrieve(self, question: str, top_k: int = 3, method: str = "hybrid",
-                 alpha: float = None, use_kg: bool = True, use_rerank: bool = True,
-                 use_expansion: bool = True) -> Dict:
+                 alpha: float = None, use_kg: bool = True, use_rerank: bool = None,
+                 use_expansion: bool = None) -> Dict:
         """
         混合检索
 
         method: hybrid（向量+BM25）/ vector（仅向量）/ bm25（仅关键词）
-        alpha:  显式指定融合权重，None 则按查询特征自适应预测
+        alpha:  显式指定融合权重，None 则按查询特征自适应预测（或取调优的固定值）
+        use_rerank / use_expansion: 不传则用引擎级开关（消融实验会逐项切换）
         """
+        use_rerank = self.use_rerank if use_rerank is None else use_rerank
+        use_expansion = self.use_expansion if use_expansion is None else use_expansion
         if not self.chunks:
             raise RuntimeError("索引尚未构建，请先运行：python src/rag_cli.py build")
 
@@ -607,7 +614,7 @@ class RAGEngine:
     # 问答
     # ------------------------------------------------------------------
     def query(self, question: str, top_k: int = 3, method: str = "hybrid",
-              alpha: float = None, use_kg: bool = True, use_rerank: bool = True,
+              alpha: float = None, use_kg: bool = True, use_rerank: bool = None,
               history: List[Dict] = None, use_cache: bool = True,
               min_coverage: float = None) -> Dict:
         """
@@ -629,6 +636,7 @@ class RAGEngine:
 
         resolved = self._resolve_coreference(question, history)
         threshold = self.min_coverage if min_coverage is None else float(min_coverage)
+        use_rerank = self.use_rerank if use_rerank is None else use_rerank
         cache_key = (resolved, top_k, method, alpha, use_kg, use_rerank, threshold)
         if use_cache and cache_key in self._cache:
             return dict(self._cache[cache_key])
