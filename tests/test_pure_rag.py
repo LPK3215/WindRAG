@@ -554,6 +554,27 @@ class SimulateCorpusTest(unittest.TestCase):
             self.assertIn(downtime, SEVERITY_DOWNTIME[severity])
 
 
+class HumanQuestionsTest(unittest.TestCase):
+    """口语化评测集结构校验（不跑检索，避免拖慢单测）"""
+
+    def test_questions_well_formed(self):
+        from pathlib import Path
+
+        path = Path(ROOT) / "data" / "human_questions.json"
+        questions = json.loads(path.read_text(encoding="utf-8"))
+        self.assertGreaterEqual(len(questions), 50)
+        answerable = [q for q in questions if q.get("kind") != "refuse"]
+        refusals = [q for q in questions if q.get("kind") == "refuse"]
+        self.assertGreaterEqual(len(answerable), 50)
+        self.assertGreaterEqual(len(refusals), 1)
+        for question in answerable:
+            self.assertTrue(question.get("q"))
+            self.assertTrue(question.get("component"))
+            self.assertTrue(question.get("fault"))
+        for question in refusals:
+            self.assertEqual(question.get("expect"), "invalid_combination")
+
+
 class DatasetTest(unittest.TestCase):
     """分层评测集：构成、目标完整性、确定性"""
 
