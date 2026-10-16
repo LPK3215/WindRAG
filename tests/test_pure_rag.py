@@ -38,6 +38,46 @@ from pure_rag.tfidf import TfidfIndex
 from pure_rag.tuner import Tuner
 
 
+_FIXTURE_DIR = None
+
+
+def fixture_data_dir() -> str:
+    """
+    测试用小数据目录：项目自带合成数据 + 知识图谱 + 极小规模的生成语料
+
+    直接用仓库的 data/ 会因为规模化语料（1269 篇）让单测慢十几倍，
+    这里取 scale=0.02 的生成语料，既覆盖「生成语料加载」这条路径又保持快速。
+    """
+    global _FIXTURE_DIR
+    if _FIXTURE_DIR:
+        return _FIXTURE_DIR
+
+    import shutil as _shutil
+
+    from simulate_corpus import generate, save
+
+    tmp = tempfile.mkdtemp(prefix="pure_rag_fixture_")
+    synthetic = Path(tmp) / "synthetic"
+    synthetic.mkdir(parents=True)
+    for name in ("fault_cases", "technical_docs", "operations_manual",
+                 "qa_pairs", "negative_queries"):
+        source = Path(ROOT) / "data" / "synthetic" / f"{name}.json"
+        if source.exists():
+            _shutil.copy2(source, synthetic / source.name)
+    _shutil.copy2(Path(ROOT) / "data" / "knowledge_graph.json", Path(tmp) / "knowledge_graph.json")
+    save(generate(scale=0.02), str(Path(tmp) / "generated"))
+
+    _FIXTURE_DIR = tmp
+    return tmp
+
+
+def tearDownModule():
+    import shutil as _shutil
+
+    if _FIXTURE_DIR:
+        _shutil.rmtree(_FIXTURE_DIR, ignore_errors=True)
+
+
 def _make_docx(path, paragraphs):
     """用标准库生成一个最小可用的 docx，用于验证解析逻辑"""
     body = "".join(f"<w:p><w:r><w:t>{text}</w:t></w:r></w:p>" for text in paragraphs)
@@ -214,7 +254,7 @@ class EngineTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp(prefix="pure_rag_test_")
-        cls.engine = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+        cls.engine = RAGEngine(data_dir=fixture_data_dir(),
                                index_dir=os.path.join(cls.tmp_dir, "index"),
                                use_llm=False)
         cls.summary = cls.engine.build(verbose=False)
@@ -259,7 +299,7 @@ class EngineTest(unittest.TestCase):
 
     def test_load_from_disk_gives_same_top_doc(self):
         before = self.engine.query("齿轮箱润滑油更换周期")["retrieved_docs"][0]["doc_id"]
-        reloaded = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+        reloaded = RAGEngine(data_dir=fixture_data_dir(),
                              index_dir=self.engine.index_dir, use_llm=False)
         self.assertTrue(reloaded.load())
         after = reloaded.query("齿轮箱润滑油更换周期")["retrieved_docs"][0]["doc_id"]
@@ -330,7 +370,7 @@ class ExplainTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp(prefix="pure_rag_explain_")
-        cls.engine = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+        cls.engine = RAGEngine(data_dir=fixture_data_dir(),
                                index_dir=os.path.join(cls.tmp_dir, "index"),
                                use_llm=False)
         cls.engine.build(verbose=False)
@@ -358,7 +398,7 @@ class RobustnessTest(unittest.TestCase):
     """改写查询构造与评测"""
 
     def setUp(self):
-        self.evaluator = Evaluator(os.path.join(ROOT, "data"))
+        self.evaluator = Evaluator(fixture_data_dir())
 
     def test_rewrites_differ_from_original(self):
         samples = self.evaluator.build_rewrites()
@@ -378,7 +418,7 @@ class TunerTest(unittest.TestCase):
     def test_quick_grid_writes_tuning_file(self):
         tmp = tempfile.mkdtemp(prefix="pure_rag_tune_")
         try:
-            tuner = Tuner(data_dir=os.path.join(ROOT, "data"),
+            tuner = Tuner(data_dir=fixture_data_dir(),
                           index_dir=os.path.join(tmp, "index"), num_questions=5)
             outcome = tuner.run(quick=True, verbose=False)
             self.assertEqual(outcome["evaluated"], 4)
@@ -478,12 +518,48 @@ class IncrementalAddTest(unittest.TestCase):
         self.assertNotIn("#", content)
 
 
+class SimulateCorpusTest(unittest.TestCase):
+    """规模化语料生成：确定性 + 能被 loader 正确加载"""
+
+    def test_generation_is_deterministic(self):
+        from simulate_corpus import generate
+
+        first = generate(scale=0.01, seed=42)
+        second = generate(scale=0.01, seed=42)
+        other = generate(scale=0.01, seed=43)
+        self.assertEqual(first["work_orders"][0]["content"], second["work_orders"][0]["content"])
+        self.assertNotEqual(first["work_orders"][0]["content"], other["work_orders"][0]["content"])
+
+    def test_generated_documents_are_loaded(self):
+        from pure_rag.loader import load_documents
+
+        documents = load_documents(fixture_data_dir())
+        sources = {document["source"] for document in documents}
+        self.assertIn("work_orders", sources)
+        self.assertIn("monthly_reports", sources)
+        for document in documents:
+            if document["source"] == "work_orders":
+                self.assertTrue(document["metadata"]["title"])
+                self.assertIn("故障ID：", document["content"])
+                break
+
+    def test_work_order_fields_are_consistent(self):
+        """严重程度与停机时长不应自相矛盾（低严重度配 168 小时这类）"""
+        from simulate_corpus import SEVERITY_DOWNTIME, generate
+
+        corpus = generate(scale=0.05)
+        for document in corpus["work_orders"]:
+            severity = document["content"].split("严重程度：")[1].splitlines()[0].strip()
+            downtime = int(document["content"].split("停机时长：")[1].split(" ")[0])
+            self.assertIn(downtime, SEVERITY_DOWNTIME[severity])
+
+
 class DatasetTest(unittest.TestCase):
     """分层评测集：构成、目标完整性、确定性"""
 
     @classmethod
     def setUpClass(cls):
-        cls.dataset = build_dataset(os.path.join(ROOT, "data"))
+        cls.dataset = build_dataset(fixture_data_dir())
         cls.items = cls.dataset["items"]
 
     def test_all_layers_present(self):
@@ -506,7 +582,7 @@ class DatasetTest(unittest.TestCase):
                 self.assertIsNone(item["target_doc"])
 
     def test_build_is_deterministic(self):
-        again = build_dataset(os.path.join(ROOT, "data"))
+        again = build_dataset(fixture_data_dir())
         self.assertEqual([item["query"] for item in again["items"]],
                          [item["query"] for item in self.items])
         self.assertEqual(again["counts"], self.dataset["counts"])
@@ -531,12 +607,12 @@ class LayeredEvalTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp(prefix="pure_rag_layers_")
-        cls.engine = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+        cls.engine = RAGEngine(data_dir=fixture_data_dir(),
                                index_dir=os.path.join(cls.tmp_dir, "index"),
                                use_llm=False)
         cls.engine.build(verbose=False)
-        cls.evaluator = Evaluator(os.path.join(ROOT, "data"))
-        cls.dataset = build_dataset(os.path.join(ROOT, "data"))
+        cls.evaluator = Evaluator(fixture_data_dir())
+        cls.dataset = build_dataset(fixture_data_dir())
 
     @classmethod
     def tearDownClass(cls):
@@ -582,8 +658,8 @@ class CombinationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp(prefix="pure_rag_combo_")
-        cls.kg = KnowledgeGraphRetriever(os.path.join(ROOT, "data", "knowledge_graph.json"))
-        cls.engine = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+        cls.kg = KnowledgeGraphRetriever(os.path.join(fixture_data_dir(), "knowledge_graph.json"))
+        cls.engine = RAGEngine(data_dir=fixture_data_dir(),
                                index_dir=os.path.join(cls.tmp_dir, "index"),
                                use_llm=False)
         cls.engine.build(verbose=False)
@@ -627,7 +703,7 @@ class CombinationTest(unittest.TestCase):
         self.assertEqual(result["confidence"]["reason"], "")
 
     def test_near_miss_dataset_is_genuinely_invalid(self):
-        dataset = build_dataset(os.path.join(ROOT, "data"))
+        dataset = build_dataset(fixture_data_dir())
         items = [item for item in dataset["items"] if item["layer"] == "near_miss"]
         self.assertTrue(items)
         for item in items:
@@ -640,7 +716,7 @@ class AblationTest(unittest.TestCase):
     """消融实验：配置可跑通、指标结构完整、开关确实生效"""
 
     def test_run_reports_all_configurations(self):
-        runner = AblationRunner(data_dir=os.path.join(ROOT, "data"), num_questions=5)
+        runner = AblationRunner(data_dir=fixture_data_dir(), num_questions=5)
         payload = runner.run(verbose=False)
         self.assertEqual(len(payload["results"]), len(CONFIGURATIONS))
         for item in payload["results"]:
@@ -653,7 +729,7 @@ class AblationTest(unittest.TestCase):
         self.assertIn("| 配置 |", payload["markdown"])
 
     def test_alpha_sweep_includes_adaptive_row(self):
-        runner = AblationRunner(data_dir=os.path.join(ROOT, "data"), num_questions=5)
+        runner = AblationRunner(data_dir=fixture_data_dir(), num_questions=5)
         rows = runner.sweep_alpha(verbose=False)
         self.assertEqual(len(rows), len(ALPHA_SWEEP) + 1)
         self.assertIsNone(rows[-1]["config"]["alpha"])
@@ -697,7 +773,7 @@ class ClaimLocationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp(prefix="pure_rag_claim_")
-        cls.engine = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+        cls.engine = RAGEngine(data_dir=fixture_data_dir(),
                                index_dir=os.path.join(cls.tmp_dir, "index"),
                                use_llm=False, use_kg=False)
         cls.engine.build(verbose=False)
@@ -755,7 +831,7 @@ class FaultCardTest(unittest.TestCase):
     def test_card_from_real_query(self):
         tmp = tempfile.mkdtemp(prefix="pure_rag_card_")
         try:
-            engine = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+            engine = RAGEngine(data_dir=fixture_data_dir(),
                                index_dir=os.path.join(tmp, "index"), use_llm=False)
             engine.build(verbose=False)
             card = engine.query("齿轮箱温度过高应该怎么处理？")["card"]
@@ -809,7 +885,7 @@ class ConfidenceTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp(prefix="pure_rag_confidence_")
-        cls.engine = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+        cls.engine = RAGEngine(data_dir=fixture_data_dir(),
                                index_dir=os.path.join(cls.tmp_dir, "index"),
                                use_llm=False, use_kg=False)
         cls.engine.build(verbose=False)
@@ -864,11 +940,11 @@ class NegativeEvalTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp(prefix="pure_rag_negative_")
-        cls.engine = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+        cls.engine = RAGEngine(data_dir=fixture_data_dir(),
                                index_dir=os.path.join(cls.tmp_dir, "index"),
                                use_llm=False, use_kg=False)
         cls.engine.build(verbose=False)
-        cls.evaluator = Evaluator(os.path.join(ROOT, "data"))
+        cls.evaluator = Evaluator(fixture_data_dir())
 
     @classmethod
     def tearDownClass(cls):

@@ -252,6 +252,22 @@ def cmd_eval(args) -> int:
         print(report["markdown"])
         if not args.no_save:
             print(f"\n报告已保存到 {evaluator.save_markdown_report(report, args.report_path)}")
+
+        # 质量门禁：以「回答层汇总召回」为准（分层报告的口径），
+        # 单看某一个小层容易被样本量误导
+        if args.min_recall is not None:
+            from pure_rag.datasets import ANSWER_LAYERS
+
+            buckets = [bucket for name, bucket in report["layers"]["layers"].items()
+                       if name in ANSWER_LAYERS]
+            answers = sum(bucket["answer_count"] for bucket in buckets) or 1
+            recall = sum(bucket["hits"] for bucket in buckets) / answers
+            if recall < args.min_recall:
+                print(f"\n[gate] 回答层 Recall@{args.top_k} = {recall:.2%} "
+                      f"< 要求 {args.min_recall:.2%}，构建失败")
+                return 1
+            print(f"\n[gate] 回答层 Recall@{args.top_k} = {recall:.2%} "
+                  f"≥ 要求 {args.min_recall:.2%}，通过")
         return 0
 
     result = evaluator.evaluate(engine, num_questions=args.num, top_k=args.top_k,

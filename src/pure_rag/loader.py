@@ -17,6 +17,7 @@ from typing import Dict, List
 from data_processing import DataProcessor
 
 USER_DIR_NAME = "user_docs"
+GENERATED_DIR_NAME = "generated"
 SUPPORTED_SUFFIXES = (".txt", ".md", ".markdown", ".json", ".csv", ".docx")
 _PARAGRAPH_BREAKS = ("</w:p>", "<w:br/>", "<w:cr/>")
 
@@ -105,10 +106,45 @@ def load_user_documents(data_dir: str = "data") -> List[Dict]:
     return documents
 
 
+def load_generated_documents(data_dir: str = "data") -> List[Dict]:
+    """
+    加载 data/generated/ 下由 `src/simulate_corpus.py` 生成的规模化语料
+
+    与 user_docs 的区别：这里每个 JSON 条目就是一篇独立文档，并保留
+    component / category / farm 等结构化元数据，而不是把整个文件拼成一篇。
+    目录不存在时返回空列表（只有小语料也能正常跑）。
+    """
+    generated_dir = Path(data_dir) / GENERATED_DIR_NAME
+    if not generated_dir.exists():
+        return []
+
+    documents = []
+    for path in sorted(generated_dir.glob("*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:          # noqa: BLE001 - 单文件失败不影响整体
+            print(f"[warn] 跳过 {path.name}：{exc}")
+            continue
+        items = data if isinstance(data, list) else next(
+            (value for value in data.values() if isinstance(value, list)), [])
+        for item in items:
+            if not isinstance(item, dict) or not item.get("content"):
+                continue
+            source = item.get("source", path.stem)
+            metadata = dict(item.get("metadata", {}))
+            metadata.setdefault("source", source)
+            metadata.setdefault("title", metadata.get("component")
+                                or metadata.get("category") or path.stem)
+            documents.append({"source": source, "content": item["content"],
+                              "metadata": metadata})
+    return documents
+
+
 def load_documents(data_dir: str = "data") -> List[Dict]:
-    """加载全部文档：项目数据 + 自有文档"""
+    """加载全部文档：项目数据 + 规模化生成语料 + 自有文档"""
     processor = DataProcessor(str(data_dir))
     documents = processor.load_raw_text() + processor.load_synthetic_data()
+    documents += load_generated_documents(data_dir)
     documents += load_user_documents(data_dir)
 
     for document in documents:

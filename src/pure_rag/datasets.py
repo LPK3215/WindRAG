@@ -39,6 +39,22 @@ LAYERS = {
     "negative_missing": "域内缺资料",
 }
 ANSWER_LAYERS = ("qa_verbatim", "qa_rewrite", "fault_case", "doc_title")
+
+# 自带「部件/故障类型」字段、可按案例推导查询的语料来源
+FAULT_SOURCES = ("fault_cases", "work_orders")
+# 按标题推导查询、按 source + title 定位的整篇文档来源
+DOC_SOURCES = ("technical_docs", "operations_manual", "inspections",
+               "monthly_reports", "spare_parts", "sops", "safety_rules")
+# 各来源贴合内容形态的提问方式（都用同一个模板会让月报、备件这类查询很别扭）
+DOC_QUERIES = {
+    "technical_docs": "{title}有哪些要求？",
+    "operations_manual": "{title}包括哪些内容？",
+    "inspections": "{title}的结果如何？",
+    "monthly_reports": "{title}的可利用率是多少？",
+    "spare_parts": "{title}的更换周期是多久？",
+    "sops": "{title}的作业步骤有哪些？",
+    "safety_rules": "{title}有哪些要求？",
+}
 REFUSE_LAYERS = ("near_miss", "negative_ood", "negative_missing")
 
 # 近邻负例每个部件最多取几个无效组合，控制规模
@@ -122,7 +138,8 @@ def _fault_case_layer(documents: List[Dict]) -> List[Dict]:
     """故障案例：用「部件 + 故障类型」构造查询，目标按故障 ID 定位"""
     items = []
     for document in documents:
-        if document.get("source") != "fault_cases":
+        source = document.get("source")
+        if source not in FAULT_SOURCES:
             continue
         cases = parse_fault_cases(document["content"])
         if not cases:
@@ -133,8 +150,14 @@ def _fault_case_layer(documents: List[Dict]) -> List[Dict]:
             continue
         # 故障类型常常已经带了部件名（发电机过热），避免拼成「发电机发电机过热」
         subject = fault_type if fault_type.startswith(component) else f"{component}{fault_type}"
+
+        # 规模化语料里同一个故障会有很多条工单，只问「部件+故障」会撞成一条，
+        # 因此带上风场与机组编号 —— 既能区分实例，也顺带考察"近重复文档的区分能力"
+        metadata = document.get("metadata", {})
+        farm, turbine = metadata.get("farm", ""), metadata.get("turbine", "")
+        prefix = f"{farm} {turbine} 机组" if farm and turbine else ""
         items.append(_item(
-            f"{subject}怎么处理？", "fault_case", "fault_cases",
+            f"{prefix}{subject}怎么处理？", "fault_case", source,
             target_text=f"故障ID：{case['故障ID']}",
             note=f"症状：{case.get('症状', '')[:40]}",
         ))
@@ -146,13 +169,14 @@ def _doc_layer(documents: List[Dict]) -> List[Dict]:
     items = []
     for document in documents:
         source = document.get("source")
-        if source not in ("technical_docs", "operations_manual"):
+        if source not in DOC_SOURCES:
             continue
         title = (document.get("metadata") or {}).get("title") or ""
         if not title:
             continue
+        template = DOC_QUERIES.get(source, "{title}有哪些要求？")
         items.append(_item(
-            f"{title}有哪些要求？", "doc_title", source,
+            template.format(title=title), "doc_title", source,
             target_doc={"source": source, "title": title},
         ))
     return items

@@ -17,8 +17,9 @@
       script: python -m unittest tests.test_pure_rag -v
     - name: 构建索引与检索评测
       script: |
+        python src/simulate_corpus.py
         python src/rag_cli.py build
-        python src/rag_cli.py eval -n 15 --robust --negative --no-save --min-recall 0.9
+        python src/rag_cli.py eval --report --no-save --min-recall 0.9
 
 main:
   pull_request:

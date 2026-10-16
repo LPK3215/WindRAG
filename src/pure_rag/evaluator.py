@@ -79,7 +79,9 @@ class Evaluator:
         details = []
 
         for item in dataset.get("items", []):
+            begin = time.time()
             result = engine.query(item["query"], top_k=top_k, method=method)
+            latency_ms = (time.time() - begin) * 1000
             ranked = [doc["doc_id"] for doc in result["retrieved_docs"]]
             rank = (self.rank_of_item(engine, item, ranked)
                     if item.get("expect") == "answer" else 0)
@@ -88,7 +90,7 @@ class Evaluator:
             record = {
                 "query": item["query"], "layer": item["layer"],
                 "source": item.get("source", ""), "qtype": item.get("qtype", ""),
-                "rank": rank, "refused": refused,
+                "rank": rank, "refused": refused, "latency_ms": latency_ms,
                 "answer": result["answer"],
             }
             details.append(record)
@@ -124,6 +126,7 @@ class Evaluator:
                 bucket["refusal_rate"] = bucket["refused"] / refuses
             return buckets
 
+        latencies = sorted(record["latency_ms"] for record in details)
         return {
             "dataset": {"counts": dataset.get("counts", {}),
                         "total": len(dataset.get("items", []))},
@@ -131,6 +134,10 @@ class Evaluator:
             "layers": _finalize(layers),
             "by_source": _finalize(by_source),
             "by_qtype": _finalize(by_qtype),
+            "performance": {
+                "avg_latency_ms": sum(latencies) / len(latencies) if latencies else 0.0,
+                "p95_latency_ms": (latencies[int(len(latencies) * 0.95)] if latencies else 0.0),
+            },
             "details": details,
         }
 
@@ -217,6 +224,16 @@ class Evaluator:
                     f"| {name or '未知'} | {bucket['answer_count']} | {bucket['recall']:.2%} "
                     f"| {bucket['mrr']:.4f} | {bucket['refuse_count']} "
                     f"| {bucket['refusal_rate']:.2%} |")
+
+        performance = layered.get("performance", {})
+        if performance:
+            lines += ["", "## 性能与规模", "",
+                      "| 指标 | 数值 |", "|---|---|",
+                      f"| 语料 / 分块 | {stats['source_documents']} 篇 / {stats['chunks']} 块 |",
+                      f"| 平均分块长度 | {stats.get('avg_chunk_chars', '-')} 字符 |",
+                      f"| 平均查询耗时（含生成） | {performance['avg_latency_ms']:.2f} ms |",
+                      f"| P95 查询耗时 | {performance['p95_latency_ms']:.2f} ms |",
+                      f"| 评测总查询数 | {layered['dataset']['total']} |"]
 
         rows = self.calibrate_threshold(engine, num_questions=15, top_k=top_k, method=method)
         if rows:

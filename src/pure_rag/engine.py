@@ -82,7 +82,11 @@ class RAGEngine:
         self.tuning: Dict = self._load_tuning()
         self.mmr_lambda = float(self.tuning.get("mmr_lambda", MMR_LAMBDA))
         self.expansion_weight = float(self.tuning.get("expansion_weight", EXPANSION_WEIGHT))
-        self.use_expansion = bool(self.tuning.get("use_expansion", True))
+        # 查询扩展默认关闭：规模化语料（1269 篇 / 1420 条评测）实测它是负收益 ——
+        # 多路召回经 RRF 加回后稀释了精确匹配，案例召回 -5.33pp、整体召回 -1.94pp，
+        # 延迟还涨了约 0.9ms；它唯一的收益是改写查询 +2.1pp，不划算。
+        # 需要时用 apply_tuning({"use_expansion": True}) 或 tune 子命令打开。
+        self.use_expansion = bool(self.tuning.get("use_expansion", False))
         self.use_rerank = bool(self.tuning.get("use_rerank", True))
         self.alpha_override = self.tuning.get("alpha_override")
         self.chunk_size = int(self.tuning.get("chunk_size", DEFAULT_CHUNK_SIZE))
@@ -131,7 +135,7 @@ class RAGEngine:
         self.tuning = dict(params or {})
         self.mmr_lambda = float(self.tuning.get("mmr_lambda", MMR_LAMBDA))
         self.expansion_weight = float(self.tuning.get("expansion_weight", EXPANSION_WEIGHT))
-        self.use_expansion = bool(self.tuning.get("use_expansion", True))
+        self.use_expansion = bool(self.tuning.get("use_expansion", False))
         self.use_rerank = bool(self.tuning.get("use_rerank", True))
         self.alpha_override = self.tuning.get("alpha_override")
         self.min_coverage = float(self.tuning.get("min_coverage", DEFAULT_MIN_COVERAGE))
