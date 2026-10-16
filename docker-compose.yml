@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   windrag:
     build:
@@ -7,24 +5,16 @@ services:
       dockerfile: Dockerfile
     container_name: windrag
     ports:
-      - "7860:7860"
+      # 宿主机 8000 -> 容器 8000（主线 Web 界面用 8000，不是遗留版的 7860）
+      - "8000:8000"
     volumes:
-      # 挂载配置文件（含API密钥，不打包进镜像）
+      # 只挂配置文件（含密钥，不打包进镜像）；不挂 data/，避免本地索引覆盖镜像内构建好的索引
       - ./config.env:/app/config.env:ro
-      # 持久化模型缓存（避免每次启动重新下载）
-      - windrag-models:/root/.cache
-      # 持久化索引数据
-      - ./data/processed:/app/data/processed
-      - ./data/adaptive_model:/app/data/adaptive_model
     environment:
       - PYTHONUNBUFFERED=1
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app:/app/src
     restart: unless-stopped
     deploy:
       resources:
         limits:
-          memory: 4G
-
-volumes:
-  windrag-models:
-    driver: local
+          memory: 1G
