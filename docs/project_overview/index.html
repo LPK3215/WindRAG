@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WindRAG — Project Overview</title>
+  <meta name="description" content="WindRAG: a pure-standard-library RAG for wind-turbine O&M knowledge bases. Interactive project dashboard.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script defer src="./charts.js"></script>
+  <script defer src="./script.js"></script>
+</head>
+<body>
+  <!-- scroll progress -->
+  <div class="progress-bar" id="progressBar" aria-hidden="true"></div>
+
+  <!-- top navigation -->
+  <header class="nav" id="nav">
+    <div class="nav-inner">
+      <a class="brand" href="#hero">WindRAG</a>
+      <nav class="nav-links" id="navLinks">
+        <a href="#overview">Overview</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#tech">Tech</a>
+        <a href="#method">Method</a>
+        <a href="#structure">Structure</a>
+        <a href="#quickstart">Quick Start</a>
+        <a href="#results">Results</a>
+        <a href="#api">API</a>
+        <a href="#quality">Quality</a>
+        <a href="#docs">Docs</a>
+      </nav>
+      <div class="nav-actions">
+        <button id="themeToggle" class="icon-btn" title="Toggle theme" aria-label="Toggle color theme">◐</button>
+        <button id="menuBtn" class="icon-btn hamburger" aria-label="Toggle menu">≡</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero" id="hero">
+    <div class="hero-banner">
+      <img src="../assets/banner.svg" alt="WindRAG banner" />
+    </div>
+    <p class="hero-tagline">A lightweight, <strong>pure-standard-library</strong> RAG for wind-turbine O&amp;M knowledge bases.</p>
+    <div class="hero-chips">
+      <span class="chip">v1.0.0</span>
+      <span class="chip">0 third-party deps</span>
+      <span class="chip">BM25 + TF-IDF + fusion</span>
+      <span class="chip">zero-dependency Web UI</span>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><span class="num" data-count="1269">0</span><span class="stat-label">corpus docs</span></div>
+      <div class="stat"><span class="num" data-count="1273">0</span><span class="stat-label">chunks</span></div>
+      <div class="stat"><span class="num" data-count="97.62" data-suffix="%" data-decimals="2">0</span><span class="stat-label">answer Recall@3</span></div>
+      <div class="stat"><span class="num" data-count="1473">0</span><span class="stat-label">eval items</span></div>
+      <div class="stat"><span class="num" data-count="110">0</span><span class="stat-label">unit tests</span></div>
+    </div>
+    <div class="hero-nav">
+      <a class="btn-primary" href="#quickstart">Quick Start</a>
+      <a class="btn-ghost" href="#architecture">Architecture</a>
+      <a class="btn-ghost" href="https://github.com/LPK3215/WindRAG" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </section>
+
+  <main class="wrap">
+
+    <!-- OVERVIEW -->
+    <section class="card" id="overview">
+      <h2>Project Overview</h2>
+      <p class="lead">WindRAG answers wind-turbine operations and maintenance questions by retrieving from a domain knowledge base. It is deliberately simple: the entire mainline runs on the Python standard library only — no vector database, no graph database, no training framework — yet it does the basics properly, with traceable sources and honest evaluation.</p>
+      <div class="vs-grid">
+        <div class="vs-col yes">
+          <h3>What it is</h3>
+          <ul>
+            <li>Conversational retrieval QA (<code>ask</code> / <code>chat</code>)</li>
+            <li>Zero-dependency web page rendering results + sources</li>
+            <li>Keyword + sparse-semantic + rule-fusion rerank</li>
+            <li>Optional LLM via stdlib <code>urllib</code></li>
+            <li>Import your own docs (txt/md/json/csv/docx)</li>
+          </ul>
+        </div>
+        <div class="vs-col no">
+          <h3>What it is not</h3>
+          <ul>
+            <li>Dense-vector semantic search (substituted by TF-IDF)</li>
+            <li>Heavy front-end framework (native HTML/CSS/JS, no CDN)</li>
+            <li>Neural retrieval model / training pipeline</li>
+            <li>A required LLM (extractive answers work without one)</li>
+            <li>Online crawling / data pipelines</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ARCHITECTURE -->
+    <section class="card" id="architecture">
+      <h2>Architecture Panorama</h2>
+      <p class="lead">The system spans an entry layer, an orchestration core, a retrieval layer, a generation layer, storage, external LLM, and evaluation/tooling. Interactive diagrams (Archify) are embedded below and open full-size in a new tab.</p>
+
+      <!-- inline hero-level mini map (overview-specific); authoritative diagrams are the archify HTML -->
+      <div class="minimap">
+        <svg viewBox="0 0 960 300" role="img" aria-label="WindRAG high-level data flow">
+          <defs>
+            <linearGradient id="mm-edge" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#34d399"/>
+            </linearGradient>
+          </defs>
+          <g class="mm-node" data-tip="CLI and the zero-dependency chat single page"><rect x="20" y="40" width="150" height="56" rx="12"/><text x="95" y="73">Entry (CLI / Web)</text></g>
+          <g class="mm-node" data-tip="RAGEngine: retrieval, refusal gate, generation"><rect x="230" y="40" width="150" height="56" rx="12"/><text x="305" y="73">RAGEngine</text></g>
+          <g class="mm-node" data-tip="BM25 + TF-IDF recall, adaptive-alpha fusion, RRF, MMR, knowledge graph"><rect x="440" y="40" width="170" height="56" rx="12"/><text x="525" y="73">Retrieval + Fusion</text></g>
+          <g class="mm-node" data-tip="Extractive answer by default; optional LLM that fails back to extractive"><rect x="670" y="40" width="160" height="56" rx="12"/><text x="750" y="73">Generation</text></g>
+          <g class="mm-node" data-tip="data/pure_index: bm25.json, tfidf.json, meta.json; knowledge_graph.json; corpus sources"><rect x="230" y="200" width="170" height="56" rx="12"/><text x="315" y="233">Index + Corpus</text></g>
+          <g class="mm-node" data-tip="OpenAI-compatible endpoint via stdlib urllib + model_manager pool"><rect x="670" y="200" width="160" height="56" rx="12"/><text x="750" y="233">LLM (optional)</text></g>
+          <line x1="170" y1="68" x2="230" y2="68" stroke="url(#mm-edge)" stroke-width="2.5"/>
+          <line x1="380" y1="68" x2="440" y2="68" stroke="url(#mm-edge)" stroke-width="2.5"/>
+          <line x1="610" y1="68" x2="670" y2="68" stroke="url(#mm-edge)" stroke-width="2.5"/>
+          <line x1="440" y1="228" x2="400" y2="96" stroke="#8fb2c4" stroke-width="1.6" stroke-dasharray="5 4"/>
+          <line x1="830" y1="68" x2="830" y2="200" stroke="#8fb2c4" stroke-width="1.6" stroke-dasharray="5 4"/>
+        </svg>
+        <div class="mm-tooltip" id="mmTip" hidden></div>
+      </div>
+
+      <div class="archify-grid">
+        <div class="archify-card">
+          <div class="archify-head"><span>System architecture</span><a href="./archify/architecture-panorama.html" target="_blank" rel="noopener">open ↗</a></div>
+          <iframe title="Architecture panorama" src="./archify/architecture-panorama.html" loading="lazy"></iframe>
+        </div>
+        <div class="archify-card">
+          <div class="archify-head"><span>Q&amp;A workflow</span><a href="./archify/workflow-panorama.html" target="_blank" rel="noopener">open ↗</a></div>
+          <iframe title="Workflow panorama" src="./archify/workflow-panorama.html" loading="lazy"></iframe>
+        </div>
+        <div class="archify-card">
+          <div class="archify-head"><span>/api/query sequence</span><a href="./archify/sequence-panorama.html" target="_blank" rel="noopener">open ↗</a></div>
+          <iframe title="Sequence panorama" src="./archify/sequence-panorama.html" loading="lazy"></iframe>
+        </div>
+        <div class="archify-card">
+          <div class="archify-head"><span>Data flow</span><a href="./archify/dataflow-panorama.html" target="_blank" rel="noopener">open ↗</a></div>
+          <iframe title="Dataflow panorama" src="./archify/dataflow-panorama.html" loading="lazy"></iframe>
+        </div>
+      </div>
+    </section>
+
+    <!-- TECH -->
+    <section class="card" id="tech">
+      <h2>Tech Stack</h2>
+      <p class="lead">The mainline is standard-library-only. The table contrasts the pure-Python kernel with the heavy research version kept for reference.</p>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Capability</th><th>Usual dependency</th><th>Pure-Python mainline</th></tr></thead>
+          <tbody>
+            <tr><td>Chinese tokenization</td><td>jieba</td><td>domain dict + forward max-match + bigrams, unsupervised new-word discovery</td></tr>
+            <tr><td>Keyword retrieval</td><td>rank-bm25</td><td>hand-written Okapi BM25 (inverted list + smoothed IDF)</td></tr>
+            <tr><td>Semantic retrieval</td><td>text2vec (768-dim)</td><td>hand-written sparse TF-IDF + inverted index + cosine</td></tr>
+            <tr><td>Fusion</td><td>MLP + rule prior</td><td>adaptive alpha + RRF merge + MMR rerank</td></tr>
+            <tr><td>Knowledge graph</td><td>embedding cosine</td><td>TF-IDF match + synonym table</td></tr>
+            <tr><td>Answer generation</td><td>LLM API</td><td>extractive (default), optional LLM via urllib</td></tr>
+            <tr><td>Web UI</td><td>Gradio</td><td><code>http.server</code> chat single page</td></tr>
+            <tr><td>Env config</td><td>python-dotenv</td><td>self-written <code>.env</code> parser</td></tr>
+            <tr class="row-hl"><td>Third-party deps</td><td>10+</td><td>0</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- METHOD -->
+    <section class="card" id="method">
+      <h2>Core Method</h2>
+      <div class="method-grid">
+        <div class="method-item">
+          <h3>Adaptive-alpha hybrid fusion</h3>
+          <p class="formula">S<sub>hybrid</sub>(q,d) = &alpha; &middot; &#770;S<sub>vec</sub>(q,d) + (1&minus;&alpha;) &middot; &#770;S<sub>BM25</sub>(q,d)</p>
+          <p>&alpha; is predicted from query features (standard-number / numeric / term-dense / maintenance / fault / performance / principle), optionally fixed via <code>tune</code>. Ablation shows a fixed low &alpha; (&asymp;0.3) beats the adaptive predictor on the large corpus.</p>
+        </div>
+        <div class="method-item">
+          <h3>Retrieval</h3>
+          <ul>
+            <li>BM25: <code>IDF(t)&middot;tf&middot;(k1+1) / (tf + k1&middot;(1&minus;b+b&middot;|d|/avgdl))</code></li>
+            <li>TF-IDF: sublinear tf, smoothed IDF, L2-normalized cosine</li>
+            <li>RRF multi-list merge, MMR reranking (diversity vs. relevance)</li>
+          </ul>
+        </div>
+        <div class="method-item">
+          <h3>Refusal gate (before generation)</h3>
+          <ul>
+            <li>Coverage = IDF-weighted query-term coverage in retrieved docs (blocks out-of-domain)</li>
+            <li>Knowledge-graph combination check on component&times;fault (blocks pseudo-questions whose terms exist but the pair does not)</li>
+            <li>Weak hits are refused and no LLM call is made</li>
+          </ul>
+        </div>
+        <div class="method-item">
+          <h3>Generation</h3>
+          <ul>
+            <li>Extractive: sentence scoring by query-term IDF + structure-label bonus + near-duplicate filter</li>
+            <li>Optional LLM (stdlib urllib) with free-tier model pool; on failure it returns to extractive and sets <code>llm_error</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- STRUCTURE -->
+    <section class="card" id="structure">
+      <h2>Project Structure</h2>
+      <div class="tree" id="tree">
+        <details open>
+          <summary><span class="dir">src/</span> — core source</summary>
+          <details open>
+            <summary><span class="dir">pure_rag/</span> — zero-dependency kernel (mainline)</summary>
+            <div class="tree-files">
+              <div><span class="file">engine.py</span> RAGEngine: build/retrieve/query, refusal, stats</div>
+              <div><span class="file">cli.py</span> CLI subcommands</div>
+              <div><span class="file">server.py</span> http.server + ConversationStore</div>
+              <div><span class="file">bm25.py / tfidf.py / fusion.py / kg.py</span> retrieval + fusion</div>
+              <div><span class="file">text_utils.py / query_analysis.py</span> tokenization, adaptive alpha, expansion</div>
+              <div><span class="file">chunker.py / loader.py</span> chunking + document import</div>
+              <div><span class="file">generator.py / highlight.py</span> extractive+LLM + highlighting</div>
+              <div><span class="file">datasets.py / evaluator.py / tuner.py / ablation.py / human_eval.py</span> evaluation</div>
+              <div><span class="file">env.py / stdio.py</span> config loader + stdio hardening</div>
+              <div><span class="file">web/</span> chat front-end static assets</div>
+            </div>
+          </details>
+          <div class="tree-files">
+            <div><span class="file">rag_cli.py</span> pure-Python CLI entry</div>
+            <div><span class="file">gen_readme_facts.py</span> README figures generator (from real sources)</div>
+            <div><span class="file">simulate_corpus.py</span> deterministic scaled-corpus generator</div>
+            <div><span class="file">run_rag.py, build_index.py, gradio_app.py, adaptive_fusion.py, ...</span> legacy research version (reference only)</div>
+          </div>
+        </details>
+        <details>
+          <summary><span class="dir">data/</span> — datasets, corpus and index</summary>
+          <div class="tree-files">
+            <div><span class="dir">pure_index/</span> generated index (bm25/tfidf/meta/report) — regenerable</div>
+            <div><span class="dir">synthetic/</span> synthetic data + negative/refusal eval set</div>
+            <div><span class="dir">user_docs/</span> your own documents</div>
+            <div><span class="file">knowledge_graph.json</span> component/fault graph</div>
+            <div><span class="file">eval_set.json</span> layered evaluation set</div>
+          </div>
+        </details>
+        <details>
+          <summary><span class="dir">docs/</span> — documentation &amp; assets</summary>
+          <div class="tree-files">
+            <div><span class="file">assets/banner.svg</span> generated hero banner</div>
+            <div><span class="dir">archify/</span> interactive architecture/workflow/sequence/dataflow HTML</div>
+            <div><span class="dir">project_overview/</span> this dashboard</div>
+          </div>
+        </details>
+        <details>
+          <summary><span class="dir">tests/</span> — unit tests</summary>
+          <div class="tree-files">
+            <div><span class="file">test_pure_rag.py</span> pure-Python kernel tests</div>
+          </div>
+        </details>
+        <details>
+          <summary><span class="dir">scripts/visualization/</span> — README asset generators</summary>
+          <div class="tree-files">
+            <div><span class="file">generate_banner.py</span> renders docs/assets/banner.svg from real sources</div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- QUICK START -->
+    <section class="card" id="quickstart">
+      <h2>Quick Start</h2>
+      <p class="lead">No <code>pip install</code>, no model required. Works in a clean Python 3.10+ interpreter.</p>
+      <div class="code-block"><div class="code-head"><span>bash</span><button class="copy-btn" data-copy>Copy</button></div><pre><code><span class="cmt"># build the index (tokenize + BM25 + TF-IDF + new-word discovery)</span>
+<span class="kw">python</span> src/rag_cli.py build
+<span class="kw">python</span> src/rag_cli.py ask <span class="str">"gearbox overheating handling"</span> --show-docs
+<span class="kw">python</span> src/rag_cli.py chat                <span class="cmt"># interactive multi-turn QA</span>
+<span class="kw">python</span> src/rag_cli.py serve --port 8000   <span class="cmt"># open http://127.0.0.1:8000</span></code></pre></div>
+      <p>A <code>Makefile</code> wraps the same commands (<code>make build</code>, <code>make serve</code>, <code>make eval-report</code>, ...).</p>
+      <p>Retrieval and generation are separate: without <code>LLM_API_KEY</code> (or with <code>DISABLE_LLM=true</code>) retrieval still returns documents and generation falls back to an extractive answer — it never errors or hangs.</p>
+    </section>
+
+    <!-- RESULTS -->
+    <section class="card" id="results">
+      <h2>Evaluation Results</h2>
+      <p class="lead">Figures are read from <code>data/pure_index/report.json</code> and <code>ablation.json</code> at build time (single source). Use the tabs to switch view.</p>
+      <div class="tabs" id="resultTabs">
+        <button class="tab active" data-tab="layers">By layer</button>
+        <button class="tab" data-tab="ablation">Ablation</button>
+        <button class="tab" data-tab="alpha">Alpha sweep</button>
+      </div>
+
+      <div class="tab-panel active" data-panel="layers">
+        <div class="chart-wrap"><canvas id="chartLayers" height="260"></canvas></div>
+        <div class="table-scroll">
+          <table class="data-table" id="tblLayers">
+            <thead><tr><th>Layer</th><th>Count</th><th>Recall@3</th><th>MRR</th><th>Refusal</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-panel" data-panel="ablation">
+        <div class="chart-wrap"><canvas id="chartAblation" height="260"></canvas></div>
+        <div class="table-scroll">
+          <table class="data-table" id="tblAblation">
+            <thead><tr><th>Config</th><th>Recall@k</th><th>MRR</th><th>Rewrite</th><th>Case</th><th>avg ms</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-panel" data-panel="alpha">
+        <div class="chart-wrap"><canvas id="chartAlpha" height="260"></canvas></div>
+        <div class="table-scroll">
+          <table class="data-table" id="tblAlpha">
+            <thead><tr><th>Alpha</th><th>Recall@k</th><th>MRR</th><th>Case</th><th>avg ms</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Honest limits.</strong> Synthetic queries are derived from document fields and share rare terms with the answer, so the answer layer reaches 97.62%; human-written colloquial questions (the <code>human_like</code> layer) drop to 58% Recall@3 — the gap is the lexical gap a sparse TF-IDF "vector" channel cannot bridge. This is reported, not hidden.
+      </div>
+    </section>
+
+    <!-- API -->
+    <section class="card" id="api">
+      <h2>Library &amp; API</h2>
+      <div class="code-block"><div class="code-head"><span>python</span><button class="copy-btn" data-copy>Copy</button></div><pre><code><span class="kw">import</span> sys; sys.path.insert(<span class="num">0</span>, <span class="str">"src"</span>)
+<span class="kw">from</span> pure_rag <span class="kw">import</span> RAGEngine
+
+engine = RAGEngine(use_llm=<span class="num">False</span>)
+result = engine.query(<span class="str">"gearbox overheating handling?"</span>)
+<span class="kw">print</span>(result[<span class="str">"answer"</span>])
+<span class="kw">for</span> doc <span class="kw">in</span> result[<span class="str">"retrieved_docs"</span>]:
+    <span class="kw">print</span>(doc[<span class="str">"score"</span>], doc[<span class="str">"matched"</span>], doc[<span class="str">"metadata"</span>][<span class="str">"title"</span>])</code></pre></div>
+      <div class="subcols">
+        <div>
+          <h3>REST endpoints</h3>
+          <ul>
+            <li><code>POST /api/query</code> — body <code>{question, top_k, method, alpha, session_id}</code></li>
+            <li><code>POST /api/session/reset</code> — clear multi-turn context</li>
+            <li><code>GET /api/stats</code> — index + model status</li>
+          </ul>
+        </div>
+        <div>
+          <h3>CLI subcommands</h3>
+          <ul class="inline">
+            <li><code>build</code></li><li><code>ask</code></li><li><code>chat</code></li><li><code>add</code></li><li><code>explain</code></li><li><code>stats</code></li><li><code>serve</code></li><li><code>eval</code></li><li><code>tune</code></li><li><code>ablation</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUALITY -->
+    <section class="card" id="quality">
+      <h2>Tests &amp; Quality</h2>
+      <div class="quality-grid">
+        <div class="qstat"><span class="num" data-count="110">0</span><span>unit tests</span></div>
+        <div class="qstat"><span class="num" data-count="8">0</span><span>eval layers</span></div>
+        <div class="qstat"><span class="num" data-count="1473">0</span><span>eval items</span></div>
+        <div class="qstat"><span>CI</span><span>unit + eval gate + README figures check</span></div>
+      </div>
+      <div class="code-block"><div class="code-head"><span>bash</span><button class="copy-btn" data-copy>Copy</button></div><pre><code><span class="kw">python</span> -m unittest tests.test_pure_rag -v
+<span class="kw">python</span> src/rag_cli.py eval -n 15 --robust --negative --no-save --min-recall 0.9</code></pre></div>
+      <p class="muted">The test count above is a real snapshot; the authoritative count is regenerated into the README by <code>python src/gen_readme_facts.py</code>.</p>
+    </section>
+
+    <!-- DOCS -->
+    <section class="card" id="docs">
+      <h2>Documentation Index</h2>
+      <ul class="doc-links">
+        <li><a href="https://github.com/LPK3215/WindRAG/blob/main/README.md">README.md</a> <span class="tag">English</span> — main README</li>
+        <li><a href="https://github.com/LPK3215/WindRAG/blob/main/README.zh-CN.md">README.zh-CN.md</a> <span class="tag zh">中文</span> — Chinese companion edition</li>
+        <li><a href="https://github.com/LPK3215/WindRAG/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a> — contribution flow (+ <a href="https://github.com/LPK3215/WindRAG/blob/main/CONTRIBUTING.zh-CN.md">中文</a>)</li>
+        <li><a href="https://github.com/LPK3215/WindRAG/blob/main/CHANGELOG.md">CHANGELOG.md</a> — change history (Keep a Changelog)</li>
+        <li><a href="https://github.com/LPK3215/WindRAG/blob/main/FAQ.md">FAQ.md</a> — frequently asked questions</li>
+        <li><a href="https://github.com/LPK3215/WindRAG/blob/main/SECURITY.md">SECURITY.md</a> — vulnerability reporting policy</li>
+        <li><a href="https://github.com/LPK3215/WindRAG/blob/main/AUTHORS">AUTHORS</a> — maintainers and authors</li>
+        <li><a href="https://github.com/LPK3215/WindRAG/blob/main/LICENSE">LICENSE</a> — MIT license</li>
+        <li><a href="./archify/architecture-panorama.html" target="_blank" rel="noopener">docs/archify/</a> — interactive architecture / workflow / sequence / dataflow diagrams</li>
+      </ul>
+    </section>
+
+    <!-- CONTRIBUTING + LICENSE -->
+    <section class="card" id="contributing">
+      <h2>Contributing &amp; License</h2>
+      <p>Single-maintainer project; changes go directly to <code>main</code>, mirrored to GitHub / Gitee / CNB. Commit prefixes: <code>feat</code> · <code>fix</code> · <code>docs</code> · <code>perf</code> · <code>refactor</code> · <code>chore</code> · <code>test</code>. The mainline must stay standard-library-only.</p>
+      <p>Released under the <a href="https://github.com/LPK3215/WindRAG/blob/main/LICENSE">MIT License</a> &copy; 2026 LPK3215 and WindRAG contributors. Maintainer: <strong>LPK3215</strong> &lt;17538703215@163.com&gt;.</p>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <span>WindRAG — pure-standard-library RAG for wind-turbine O&amp;M</span>
+    <a href="#hero" class="to-top-inline">back to top ↑</a>
+  </footer>
+
+  <button id="backTop" class="back-top" aria-label="Back to top">↑</button>
+
+  <!--
+    Generated: 2026-10-16 by Qoder agent (this overview dashboard).
+    Sources of truth: src/pure_rag (__version__), data/pure_index/meta.json, data/pure_index/report.json,
+    data/pure_index/ablation.json. Charts/tables data live in ./charts.js (WD_DATA) - single source.
+    Assets reused, not redrawn: ../assets/banner.svg (via scripts/visualization/generate_banner.py)
+    and ./archify/*.html (Archify). GitHub Pages legacy deploy: publish source = /docs.
+  -->
+</body>
+</html>

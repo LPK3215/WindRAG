@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "WindRAG 数据流全景",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1070, 420],
+    "views": [
+      { "id": "build", "label": "语料到索引", "focus": ["corpus", "loader", "index", "store"], "note": "多格式文档经加载分块、分词统计后落成可复用的检索索引。" },
+      { "id": "consume", "label": "索引到消费", "focus": ["store", "query", "eval"], "note": "检索读取索产出答案, 评测派生分层报告; 二者都可由语料整体重建。" }
+    ]
+  },
+  "stages": [{ "label": "数据产生" }, { "label": "加载与分块" }, { "label": "分词与建索引" }, { "label": "索引存储" }, { "label": "消费" }],
+  "nodes": [
+    { "id": "corpus", "type": "database", "label": "语料源", "sublabel": "多格式文档", "stage": 0, "row": 0, "width": 118 },
+    { "id": "loader", "type": "backend", "label": "加载分块", "sublabel": "loader·chunker", "stage": 1, "row": 0, "width": 118 },
+    { "id": "index", "type": "backend", "label": "建索引", "sublabel": "BM25·TF-IDF", "stage": 2, "row": 0, "width": 118 },
+    { "id": "store", "type": "database", "label": "索引存储", "sublabel": "pure_index", "stage": 3, "row": 0, "width": 118 },
+    { "id": "query", "type": "backend", "label": "检索生成", "sublabel": "答案+来源", "stage": 4, "row": 0, "width": 118 },
+    { "id": "eval", "type": "backend", "label": "评测报告", "sublabel": "eval report", "stage": 4, "row": 1, "width": 118 }
+  ],
+  "flows": [
+    { "id": "f1", "from": "corpus", "to": "loader", "label": "txt/md/json/csv/docx", "variant": "emphasis", "route": "straight", "labelDy": -34 },
+    { "id": "f2", "from": "loader", "to": "index", "label": "分块词序列", "variant": "emphasis", "route": "straight", "labelDy": -34 },
+    { "id": "f3", "from": "index", "to": "store", "label": "bm25/tfidf/meta", "variant": "emphasis", "route": "straight", "labelDy": -34 },
+    { "id": "f4", "from": "store", "to": "query", "label": "load 索引", "variant": "emphasis", "route": "straight", "labelDy": -34 },
+    { "id": "f5", "from": "store", "to": "eval", "label": "派生评测集", "variant": "dashed" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "可复现与可重建", "items": ["索引全部可由语料重新 build, 落 data/pure_index 不入库", "评测集由语料自动推导, 确定性构建出分层报告", "知识图谱作为旁路, 提供上下文与部件×故障组合校验"] }
+  ]
+}

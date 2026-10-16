@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "一次 /api/query 的完整调用链",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [1030, 1140],
+    "views": [
+      { "id": "request", "label": "请求下行", "focus": ["browser", "server", "engine", "retriever", "store"], "note": "前端请求经 Web 服务、编排核心进入检索，向索引取候选。" },
+      { "id": "decide", "label": "判定与生成", "focus": ["engine", "generator", "llm"], "note": "拒答判定在生成之前；LLM 为可选增强，失败回退抽取式。" }
+    ]
+  },
+  "participants": [
+    { "id": "browser", "type": "frontend", "label": "对话页", "sublabel": "web/app.js" },
+    { "id": "server", "type": "backend", "label": "Web 服务", "sublabel": "server.py" },
+    { "id": "engine", "type": "backend", "label": "RAGEngine", "sublabel": "engine.query()" },
+    { "id": "retriever", "type": "backend", "label": "检索", "sublabel": "retrieve()" },
+    { "id": "store", "type": "database", "label": "索引", "sublabel": "BM25 / TF-IDF" },
+    { "id": "kg", "type": "backend", "label": "知识图谱", "sublabel": "kg.py" },
+    { "id": "generator", "type": "backend", "label": "生成器", "sublabel": "generator.py" },
+    { "id": "llm", "type": "external", "label": "LLM 接口", "sublabel": "LLMClient urllib" }
+  ],
+  "segments": [],
+  "activations": [
+    { "participant": "engine", "from": 240, "to": 960, "type": "backend" },
+    { "participant": "retriever", "from": 320, "to": 620, "type": "backend" }
+  ],
+  "messages": [
+    { "id": "m1", "from": "browser", "to": "server", "y": 200, "label": "POST /api/query {question, top_k, method, alpha, session_id}", "variant": "emphasis" },
+    { "id": "m2", "from": "server", "to": "engine", "y": 260, "label": "query(resolved, history)" },
+    { "id": "m3", "from": "engine", "to": "retriever", "y": 320, "label": "retrieve(question)" },
+    { "id": "m4", "from": "retriever", "to": "store", "y": 380, "label": "score(tokens)" },
+    { "id": "m5", "from": "store", "to": "retriever", "y": 440, "label": "候选文档 + spans", "variant": "return" },
+    { "id": "m6", "from": "retriever", "to": "kg", "y": 500, "label": "build_context / validate_combination", "variant": "dashed" },
+    { "id": "m7", "from": "kg", "to": "retriever", "y": 560, "label": "kg_context / 组合结果", "variant": "return" },
+    { "id": "m8", "from": "retriever", "to": "engine", "y": 620, "label": "documents", "variant": "return" },
+    { "id": "m9", "from": "engine", "to": "generator", "y": 700, "label": "generate(resolved, documents, kg_context, idf_of)", "note": "拒答判定已在生成之前完成" },
+    { "id": "m10", "from": "generator", "to": "llm", "y": 760, "label": "chat(prompt)", "variant": "dashed", "note": "仅当已配且可用" },
+    { "id": "m11", "from": "llm", "to": "generator", "y": 820, "label": "答案 / 失败回退抽取式(llm_error)", "variant": "return" },
+    { "id": "m12", "from": "generator", "to": "engine", "y": 900, "label": "answer + citations/claims/card", "variant": "return" },
+    { "id": "m13", "from": "engine", "to": "server", "y": 960, "label": "result JSON", "variant": "return" },
+    { "id": "m14", "from": "server", "to": "browser", "y": 1010, "label": "渲染答案 + 高亮 + 来源定位", "variant": "return" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "关键约束", "items": ["检索层无状态: 不带 session_id 即单轮", "拒答判定在生成之前, 弱相关不调 LLM", "LLM 失败退回抽取式并把原因写入 llm_error"] }
+  ]
+}

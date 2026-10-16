@@ -1,0 +1,42 @@
+# Normalize line endings: source and text are stored LF in the repo.
+* text=auto eol=lf
+
+# Explicit text types
+*.py      text eol=lf
+*.md      text eol=lf
+*.json    text eol=lf
+*.txt     text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.env     text eol=lf
+.env.example text eol=lf
+config.env.example text eol=lf
+Dockerfile text eol=lf
+Makefile  text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Web assets
+*.html    text eol=lf
+*.css     text eol=lf
+*.js      text eol=lf
+
+# Windows batch scripts must keep CRLF
+*.bat     text eol=crlf
+
+# Binary / generated artifacts
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.pkl     binary
+*.npy     binary
+
+# Keep large generated data out of diffs
+data/**/*.json   text
+paper/**         text
+
+# GitHub linguist: show source and docs, hide vendored/generated noise
+docs/archify/*.html linguist-documentation
+*.tex            text

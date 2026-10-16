@@ -85,14 +85,35 @@ def collect_facts() -> Dict[str, object]:
     }
 
 
-def render_block(facts: Dict[str, object]) -> List[str]:
+def render_block(facts: Dict[str, object], lang: str = "zh") -> List[str]:
     """
     渲染成 Markdown 表格块
 
     只写「跨机器可复现」的事实：版本、语料规模、图谱规模、评测条数与指标、测试项数。
     Python 补丁版号、报告生成时间、查询耗时这类跟机器/时间走的数值不进 README，
     否则 CI 上的 `--check` 永远对不上；它们看 `data/pure_index/report.md` 即可。
+
+    lang 为 "en" 时表头与标签走英文（用于 README.md 主版），其余走中文（用于 README.zh-CN.md）。
     """
+    if lang == "en":
+        return [
+            BEGIN_MARKER,
+            "",
+            "| Item | Value | Source |",
+            "|---|---|---|",
+            f"| Kernel version | {facts['version']} | `pure_rag.__version__` |",
+            f"| Corpus | {facts['documents']} docs / {facts['chunks']} chunks / vocab {facts['vocabulary']} "
+            f"({facts['discovered_terms']} discovered) | `data/pure_index/meta.json` |",
+            f"| Knowledge graph | {facts['kg_nodes']} nodes / {facts['kg_edges']} edges | `data/knowledge_graph.json` |",
+            f"| Eval set | {facts['eval_total']} items ({facts['eval_layers']} layers) | `data/eval_set.json` |",
+            f"| Answer-layer Recall@3 | {facts['answer_recall']:.2%} | `python src/rag_cli.py eval --report` |",
+            f"| Colloquial-layer Recall@3 | {facts['human_recall']:.2%} ({facts['human_count']} items) | same |",
+            f"| Near-miss refusal | {facts['near_miss_refusal']:.2%} | same |",
+            f"| Out-of-domain refusal | {facts['ood_refusal']:.2%} | same |",
+            f"| Unit tests | {facts['tests']} | `python -m unittest tests.test_pure_rag` |",
+            "",
+            END_MARKER,
+        ]
     return [
         BEGIN_MARKER,
         "",
@@ -134,8 +155,9 @@ def main(argv=None) -> int:
     configure_streams()
 
     path = ROOT / args.readme
+    lang = "zh" if "zh-CN" in Path(args.readme).name else "en"
     lines = path.read_text(encoding="utf-8").splitlines()
-    block = render_block(collect_facts())
+    block = render_block(collect_facts(), lang)
     updated = splice(lines, block)
 
     if args.check:

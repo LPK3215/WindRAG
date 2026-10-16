@@ -21,7 +21,9 @@
         python src/rag_cli.py build
         python src/rag_cli.py eval --report --min-recall 0.9
     - name: 文档事实一致性
-      script: python src/gen_readme_facts.py --check
+      script: |
+        python src/gen_readme_facts.py --check
+        python src/gen_readme_facts.py --check --readme README.zh-CN.md
 
 main:
   pull_request:

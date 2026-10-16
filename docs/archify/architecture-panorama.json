@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "WindRAG 全景系统架构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1280, 760],
+    "views": [
+      { "id": "qa-path", "label": "问答主链路", "focus": ["web_ui", "web_server", "engine", "retrieval", "generator", "llm"], "note": "从对话页发起一次问答，经编排核心走检索、拒答判定到答案生成。" },
+      { "id": "index-build", "label": "语料到索引", "focus": ["corpus", "loader", "store"], "note": "自有与合成语料经导入分块后构建可复用的检索索引。" },
+      { "id": "tooling-legacy", "label": "工具与对照", "focus": ["eval", "legacy", "llm"], "note": "评测调参脚本与遗留重依赖研究版都不进主线，只复用模型池与数据。" }
+    ]
+  },
+  "components": [
+    { "id": "web_ui", "type": "frontend", "label": "Web 对话页", "sublabel": "web/index.html", "pos": [60, 60], "size": [220, 64], "tag": "对话式单页" },
+    { "id": "web_server", "type": "backend", "label": "Web 服务", "sublabel": "server.py http.server", "pos": [60, 210], "size": [220, 64], "tag": "ConversationStore" },
+    { "id": "cli", "type": "frontend", "label": "CLI 入口", "sublabel": "rag_cli.py build/ask/chat/serve", "pos": [60, 360], "size": [220, 64] },
+    { "id": "engine", "type": "backend", "label": "RAGEngine 编排核心", "sublabel": "engine.py 检索/生成/拒答", "pos": [420, 150], "size": [230, 64] },
+    { "id": "retrieval", "type": "backend", "label": "检索链路", "sublabel": "bm25·tfidf·fusion·kg", "pos": [700, 60], "size": [220, 64] },
+    { "id": "generator", "type": "backend", "label": "答案生成", "sublabel": "generator.py", "pos": [700, 250], "size": [220, 64] },
+    { "id": "llm", "type": "external", "label": "LLM 兼容接口", "sublabel": "LLMClient + model_manager", "pos": [980, 250], "size": [220, 64], "tag": "可选增强" },
+    { "id": "store", "type": "database", "label": "索引存储", "sublabel": "data/pure_index bm25·tfidf·meta", "pos": [420, 430], "size": [230, 64] },
+    { "id": "loader", "type": "backend", "label": "数据导入", "sublabel": "loader.py·chunker.py·add", "pos": [60, 500], "size": [220, 64] },
+    { "id": "corpus", "type": "database", "label": "语料来源", "sublabel": "synthetic·user_docs·kg", "pos": [60, 630], "size": [220, 64] },
+    { "id": "eval", "type": "backend", "label": "评测与调参", "sublabel": "evaluator·tuner·ablation", "pos": [700, 460], "size": [220, 64], "tag": "工具脚本" },
+    { "id": "legacy", "type": "backend", "label": "遗留研究版(对照)", "sublabel": "run_rag·gradio_app", "pos": [980, 460], "size": [220, 64], "tag": "不进主线" }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "入口层 / 前端", "wraps": ["web_ui", "web_server", "cli"] },
+    { "kind": "region", "label": "编排核心", "wraps": ["engine"] },
+    { "kind": "region", "label": "主线检索与生成 (src/pure_rag)", "wraps": ["retrieval", "generator"] },
+    { "kind": "region", "label": "外部依赖", "wraps": ["llm"] },
+    { "kind": "region", "label": "数据接入与索引存储", "wraps": ["loader", "store", "corpus"] },
+    { "kind": "region", "label": "评测工具与遗留对照", "wraps": ["eval", "legacy"] }
+  ],
+  "connections": [
+    { "id": "ui-to-server", "from": "web_ui", "to": "web_server", "label": "POST /api/query", "variant": "emphasis", "labelAt": [170, 150] },
+    { "id": "server-to-engine", "from": "web_server", "to": "engine", "label": "query()", "variant": "emphasis", "fromSide": "right", "toSide": "left" },
+    { "id": "cli-to-engine", "from": "cli", "to": "engine", "label": "build/ask/chat", "fromSide": "right", "toSide": "bottom", "labelAt": [300, 330] },
+    { "id": "engine-to-retrieval", "from": "engine", "to": "retrieval", "label": "search()", "variant": "emphasis", "fromSide": "right", "toSide": "left" },
+    { "id": "engine-to-generator", "from": "engine", "to": "generator", "label": "generate()", "variant": "emphasis", "fromSide": "bottom", "toSide": "left" },
+    { "id": "engine-to-store", "from": "engine", "to": "store", "label": "build/load", "fromSide": "bottom", "toSide": "top", "labelAt": [478, 320] },
+    { "id": "generator-to-llm", "from": "generator", "to": "llm", "label": "chat 可选", "variant": "dashed" },
+    { "id": "corpus-to-loader", "from": "corpus", "to": "loader", "label": "docx/csv", "fromSide": "top", "toSide": "bottom" },
+    { "id": "loader-to-store", "from": "loader", "to": "store", "label": "chunks", "fromSide": "right", "toSide": "left" },
+    { "id": "eval-to-store", "from": "eval", "to": "store", "label": "eval/report", "variant": "dashed", "fromSide": "left", "toSide": "right", "labelAt": [675, 538] },
+    { "id": "legacy-to-llm", "from": "legacy", "to": "llm", "label": "模型池", "variant": "dashed", "fromSide": "top", "toSide": "bottom" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "主线 (纯标准库)", "items": ["入口: CLI 与零依赖 Web 对话页", "编排: RAGEngine 串联检索-拒答-生成", "生成: 抽取式默认, LLM 可选且失败回退"] },
+    { "dot": "amber", "title": "旁路、工具与外部", "items": ["语料经 loader/chunker 入库, 索引落 data/pure_index", "evaluator/tuner/ablation 离线评测不调 LLM", "run_rag/gradio_app 遗留版仅复用模型池, 不进主线"] }
+  ]
+}

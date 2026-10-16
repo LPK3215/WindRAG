@@ -47,3 +47,13 @@ data/eval_set.json
 
 # 本轮维护的过程产物目录（标记为临时，验收后手工删除，不入库）
 .tmp_windrag/
+.tmp_*
+
+# 环境变量文件（真实密钥，只提交 .env.example / config.env.example）
+.env
+
+# archify 浏览器取证的临时侧车产物（交付物只保留 *-panorama.html/.json）
+docs/archify/*.visual-check.*
+
+# 回收/备份文件
+*.bak

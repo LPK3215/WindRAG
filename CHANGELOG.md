@@ -214,6 +214,24 @@
   也不让上千条评测查询去砸免费额度；`ablation` 与 `tune` 本就 `use_llm=False`
 - 单元测试由 108 项增到 109 项（项数以 README 自动生成块为准，不再手写）
 
+### 新增
+- 开源规范文件补全（增量，不破坏既有内容）：
+  - README 拆分为英文主版 `README.md` + 中文配套版 `README.zh-CN.md`，两版章节一一对应、
+    顶部互链；`src/gen_readme_facts.py` 实测块改为按目标文件语言渲染（README.md 英文标签、
+    README.zh-CN.md 中文标签），数字仍全部取自真源不手写
+  - CONTRIBUTING 同样拆分为英文主版 + `CONTRIBUTING.zh-CN.md`，补充文档数字与中英双版校验命令
+  - 新增 `SECURITY.md`（漏洞报告政策）、`FAQ.md`（常见问题）、`AUTHORS`（作者与维护者）
+  - 新增 `Makefile`（build/ask/chat/serve/eval/ablation/tune/stats/test/corpus/facts 便捷目标，
+    仅调用 `python src/rag_cli.py`，零依赖）与 `.gitattributes`（行尾规范化 + 数据/索引/HTML 的
+    linguist 归类）
+  - `.gitignore` 补充 `.env`、`.tmp_*`、`*.bak` 与 archify 取证侧车产物
+
+### 变更
+- `LICENSE` 版权行补上作者身份（LPK3215 and WindRAG contributors，年份 2026 不变）
+- `.cnb.yml` 文档事实一致性阶段追加对 `README.zh-CN.md` 的 `--check`，中英双版数字同受门禁
+- 项目内新增交互式图集 `docs/archify/`（architecture / workflow / sequence / dataflow 四张，
+  均由 archify 生成并通过 showcase 校验）与出图输入蓝图 `diagram-input.md`
+
 ## [1.0.0] - 2026-01
 
 ### 新增

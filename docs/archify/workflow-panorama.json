@@ -1,0 +1,62 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "WindRAG 问答主流程",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "happy-path", "label": "提问到答案", "focus": ["user", "resolve", "recall", "decide", "generate", "answer"], "note": "一次提问从入口到指代消解、混合检索、拒答判定、生成与渲染返回。" },
+      { "id": "kg-branch", "label": "知识图谱旁路", "focus": ["recall", "kg", "decide", "generate"], "note": "图谱不参与打分，只提供上下文与部件×故障组合校验。" },
+      { "id": "refuse", "label": "拒答分支", "focus": ["decide", "refuse"], "note": "覆盖率不足或组合不成立时直接拒答，省下一次生成调用。" }
+    ]
+  },
+  "lanes": [
+    { "id": "entry", "label": "入口 / 编排" },
+    { "id": "retrieval", "label": "检索 + 图谱" },
+    { "id": "decision", "label": "判定层" },
+    { "id": "generation", "label": "生成层" },
+    { "id": "output", "label": "输出" }
+  ],
+  "phases": [
+    { "id": "intake", "label": "接入", "fromCol": 0, "toCol": 1 },
+    { "id": "compute", "label": "检索 + 判定", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "deliver", "label": "生成 + 返回", "fromCol": 4, "toCol": 5, "variant": "dashed" }
+  ],
+  "groups": [
+    { "id": "core", "label": "拒答判定(生成前)", "lane": "decision", "fromCol": 3, "toCol": 3, "variant": "emphasis" },
+    { "id": "kg_side", "label": "图谱旁路", "lane": "retrieval", "fromCol": 2, "toCol": 3, "variant": "dashed" }
+  ],
+  "mainPath": ["user", "resolve", "recall", "decide", "generate", "answer"],
+  "semanticChecks": {
+    "allowedRoots": ["user"],
+    "allowedTerminals": ["answer", "refuse"],
+    "requiredPaths": [
+      { "from": "decide", "to": "generate" },
+      { "from": "decide", "to": "refuse" }
+    ]
+  },
+  "nodes": [
+    { "id": "user", "lane": "entry", "col": 0, "type": "external", "label": "用户提问", "sublabel": "ask / chat / web", "width": 150 },
+    { "id": "resolve", "lane": "entry", "col": 1, "type": "backend", "label": "指代消解", "sublabel": "_resolve_coreference", "width": 150 },
+    { "id": "recall", "lane": "retrieval", "col": 2, "type": "backend", "label": "混合检索", "sublabel": "分词·BM25+TF-IDF·融合·MMR", "width": 165 },
+    { "id": "kg", "lane": "retrieval", "col": 3, "type": "backend", "label": "知识图谱旁路", "sublabel": "build_context·HAS_FAULT", "width": 150 },
+    { "id": "decide", "lane": "decision", "col": 3, "type": "security", "label": "置信度与拒答判定", "sublabel": "coverage·should_refuse·组合校验", "tag": "核心", "width": 165 },
+    { "id": "generate", "lane": "generation", "col": 4, "type": "backend", "label": "答案生成", "sublabel": "抽取式默认·LLM可选回退", "width": 150 },
+    { "id": "answer", "lane": "output", "col": 5, "type": "frontend", "label": "渲染返回", "sublabel": "citations/claims/card", "width": 150 },
+    { "id": "refuse", "lane": "decision", "col": 5, "type": "security", "label": "拒答话术", "sublabel": "缺失关键词/纠正部件", "width": 150 }
+  ],
+  "edges": [
+    { "from": "user", "to": "resolve", "variant": "default" },
+    { "from": "resolve", "to": "recall", "variant": "emphasis" },
+    { "from": "recall", "to": "decide", "label": "候选文档", "variant": "emphasis" },
+    { "from": "recall", "to": "kg", "label": "查询实体", "variant": "dashed", "role": "branch" },
+    { "from": "kg", "to": "decide", "label": "组合校验", "variant": "dashed", "role": "branch" },
+    { "from": "decide", "to": "generate", "label": "通过", "variant": "emphasis" },
+    { "from": "decide", "to": "refuse", "label": "拒答", "variant": "security", "role": "error" },
+    { "from": "generate", "to": "answer", "label": "答案+来源", "variant": "emphasis" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "主链路与降级", "items": ["入口→检索→判定→生成→返回是唯一的问答主链路, 拒答判定在生成之前", "图谱不参与打分仅补上下文与组合校验; LLM 属可选, 失败自动回退抽取式"] }
+  ]
+}

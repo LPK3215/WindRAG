@@ -1,47 +1,54 @@
-# 贡献指南
+# Contributing to WindRAG
 
-感谢您关注 WindRAG！请阅读以下指南参与贡献。
+Thanks for your interest in WindRAG! Please read this guide before contributing.
 
-## 开发环境搭建
+Language: this file is the English main version; a Chinese companion lives at [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md).
 
-请先阅读 [README.md](./README.md) 了解项目架构和安装步骤。
+## Development environment
 
-纯 Python 检索内核（`src/pure_rag/`）零第三方依赖，有 Python 3.10+ 即可运行，
-不需要 `pip install -r requirements.txt`（那是研究版才需要的重依赖）。
+Read [README.md](README.md) ([中文](README.zh-CN.md)) for the architecture and run steps first.
 
-## 分支策略
+The pure-Python retrieval kernel (`src/pure_rag/`) has zero third-party dependencies: a plain Python 3.10+ interpreter is enough. You do **not** need `pip install -r requirements.txt` — that file is only for the heavy research version.
 
-- 本项目为单人维护，**改动一律直接提交到 `main`**，不另开 `feature/*`、`fix/*` 分支，也不走 PR
-- 确有必要开分支时，请先说明原因，并在合并后立即删除，避免仓库里留下多余分支
+## Branch strategy
 
-## 提交规范
+- This is a single-maintainer project; **all changes are committed directly to `main`**. No `feature/*` or `fix/*` branches, no pull-request round-trip.
+- If a branch is genuinely necessary, state why up front and delete it right after merging so no stray branches are left behind.
 
-| 前缀 | 用途 |
+## Commit convention
+
+| Prefix | Use |
 |---|---|
-| `feat:` | 新功能 |
-| `fix:` | Bug 修复 |
-| `docs:` | 文档更新 |
-| `perf:` | 性能优化 |
-| `refactor:` | 代码重构 |
-| `chore:` | 构建/工具变更 |
-| `test:` | 测试相关 |
+| `feat:` | New feature |
+| `fix:` | Bug fix |
+| `docs:` | Documentation |
+| `perf:` | Performance |
+| `refactor:` | Refactoring |
+| `chore:` | Build / tooling |
+| `test:` | Tests |
 
-标题控制在 50 字以内、只说改了什么；「为什么改、怎么改」写进提交正文。
+Keep the subject under 50 characters and say only what changed; put the "why and how" in the commit body.
 
-## 提交前自检
+## Pre-commit self-check
 
 ```bash
-python -m unittest tests.test_pure_rag -v        # 单元测试
-python src/rag_cli.py build                      # 索引能正常构建
+python -m unittest tests.test_pure_rag -v        # unit tests
+python src/rag_cli.py build                      # index builds cleanly
 python src/rag_cli.py eval -n 15 --robust --negative --no-save --min-recall 0.9
+python src/gen_readme_facts.py --check           # README figures match the real sources
+python src/gen_readme_facts.py --check --readme README.zh-CN.md
 ```
 
-以上三条与 `.cnb.yml` 流水线一致，推送到 `main` 后会由流水线自动再验证一遍。
+These mirror the `.cnb.yml` pipeline, which re-runs unit tests, evaluation, and the documentation-consistency gate on every push to `main`.
 
-## 代码规范
+## Code style
 
-- 使用 Python 3.10+ 风格
-- 遵循 PEP 8 规范
-- 不要提交 `config.env` 或任何 API 密钥
-- 索引目录（`data/pure_index/`、`data/processed/`）与 `data/chat_logs/` 可重新生成，不入库
-- 不要把构建环境的回收站目录（`.Trash-0/`）带进版本库
+- Python 3.10+ style, follow PEP 8.
+- Do not commit `config.env` or any API key; keys live only in the gitignored config file.
+- The mainline (`src/pure_rag/`, `src/rag_cli.py`) must stay standard-library-only; never import the heavy research-version modules on the pure-Python path.
+- Index directories (`data/pure_index/`, `data/processed/`) and `data/chat_logs/` are regenerable and not committed.
+- Do not let build-environment trash directories (`.Trash-0/`) slip into the repo.
+
+## Documentation numbers
+
+Corpus size, chunk counts, vocabulary, eval-item counts, metrics, and test counts must never be hand-written. Generate them from the real sources with `python src/gen_readme_facts.py` (use `--check` to detect drift); after the corpus changes, refresh the docs.

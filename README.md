@@ -1,234 +1,74 @@
 <div align="center">
 
-# WindRAG
+<img src="./docs/assets/banner.svg" alt="WindRAG" width="100%"/>
 
-**风电领域智能诊断问答系统 - 基于多策略混合检索与知识图谱增强的RAG**
+[![license](https://img.shields.io/github/license/LPK3215/WindRAG)](LICENSE)
+![python](https://img.shields.io/badge/python-3.10%2B-blue)
+![deps](https://img.shields.io/badge/third--party%20deps-0-brightgreen)
+![install](https://img.shields.io/badge/pip%20install-not%20required-informational)
+![ui](https://img.shields.io/badge/web%20UI-http.server%20SPA-8ab4f8)
 
-[![Python](https://img.shields.io/badge/Python-3.10-blue.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![RAG](https://img.shields.io/badge/RAG-Retrieval%20Augmented-orange.svg)]()
-[![Wind Power](https://img.shields.io/badge/Domain-Wind%20Power-9cf.svg)]()
+**WindRAG** — a lightweight, pure-standard-library RAG for wind-turbine O&M knowledge bases.
+
+Conversational retrieval plus a zero-dependency web page that renders results, source locations, and matched terms. Runs straight in a clean interpreter with plain `python`.
+
+[Features](#-features) · [Quick Start](#quick-start) · [CLI](#cli) · [Web UI](#web-ui) · [Visualization](#-visualization) · [Evaluation](#evaluation-and-known-limits) · [FAQ](FAQ.md)
+
+[中文](README.zh-CN.md)
 
 </div>
 
----
+## ✨ Features
 
-## 项目简介
+- **Zero dependencies** — the entire mainline (`src/pure_rag/`) is the Python standard library only; `build` / `ask` / `eval` / `serve` run in a clean interpreter with no `pip install`.
+- **Hybrid retrieval** — hand-written Okapi BM25 + sparse TF-IDF, fused with a rule-prior adaptive alpha, RRF merging and MMR reranking, plus TF-IDF-based knowledge-graph context.
+- **Retrieval / generation separated** — without an LLM it returns a readable extractive answer; the LLM is optional, fails back to extractive, and surfaces `llm_error` instead of degrading silently.
+- **Traceable answers** — per-point character spans back to the source, clickable citations, fault cards, and hit-term highlighting (terminal ANSI / web `<mark>` / Markdown bold).
+- **Honest evaluation** — a deterministic, layered eval set auto-derived from the corpus, with ablation tables reporting negative results and the real (much lower) usability of colloquial queries.
 
-WindRAG 是一个面向风力发电领域的智能故障诊断问答系统，采用**检索增强生成（RAG）**架构，融合向量语义检索、BM25关键词检索和知识图谱结构检索三种策略，实现高质量的风电领域知识问答。
+## What it is / what it is not
 
-### 核心特性
+| Is | Is not |
+|---|---|
+| Conversational retrieval QA (`ask` / `chat`) | Dense-vector semantic search (substituted by TF-IDF) |
+| Zero-dependency web page for results and sources | Heavy front-end framework (native HTML/CSS/JS, no CDN) |
+| Keyword + sparse semantic + rule-based fusion rerank | Neural retrieval model / training pipeline |
+| Optional LLM enhancement (stdlib `urllib`) | A required LLM (extractive answers work without one) |
+| Import your own docs (txt/md/json/csv/docx) | Online crawling / data pipelines |
 
-- **自适应混合检索** - 根据查询特征动态调整向量检索与BM25检索的融合权重
-- **知识图谱增强** - 基于embedding语义匹配的知识图谱查询，解决同义词问题
-- **零依赖纯 Python 内核** - `src/pure_rag/` 只用标准库完成分词、BM25、TF-IDF、融合重排、生成与 Web 界面
-- **中文深度优化** - 领域词典 + 最大匹配分词、无监督新词发现、领域术语识别
-- **高鲁棒性** - 异常输入、并发查询、LLM 不可用等场景全部测试通过
+## Quick start
 
----
-
-## 系统架构
-
-<img src="docs/images/architecture.png" width="800" alt="WindRAG Architecture">
-
-系统采用四层架构设计：
-
-| 层级 | 功能 | 关键技术 |
-|:---:|------|---------|
-| 数据层 | 多源异构数据整合 | 故障案例/技术文档/运维手册/问答对 |
-| 索引层 | 三种互补索引 | 向量索引 · BM25索引 · 知识图谱 |
-| 检索层 | 多策略融合检索 | 自适应α融合 · 语义重排序 · 图谱增强 |
-| 生成层 | 鲁棒答案生成 | 检索直达抽取式答案 · 可选 LLM 增强 · 拒答判据 |
-
----
-
-## 检索流程
-
-<img src="docs/images/retrieval_flow.png" width="700" alt="Retrieval Flow">
-
-### 自适应融合公式
-
-$$S_{hybrid}(q, d) = \alpha \cdot \hat{S}_{vec}(q, d) + (1-\alpha) \cdot \hat{S}_{BM25}(q, d)$$
-
-其中 $\alpha$ 不再是固定值，而是根据查询特征**动态预测**：
-
-| 查询特征 | 推荐α值 | 含义 |
-|---------|:---:|------|
-| 含标准编号 (ISO/GB) | 0.3 | BM25精确匹配更重要 |
-| 含数值规格 (mm/℃) | 0.4 | 精确数值检索更关键 |
-| 术语密集 (≥3个) | 0.5 | BM25召回效果好 |
-| 维护操作类 | 0.6 | 语义+关键词均衡 |
-| 故障诊断类 | 0.7 | 语义理解更重要 |
-| 性能优化类 | 0.75 | 语义理解为主 |
-| 系统原理类 | 0.8 | 纯语义理解 |
-
----
-
-## 知识图谱
-
-<img src="docs/images/knowledge_graph.png" width="500" alt="Knowledge Graph">
-
-- **162个节点**：12个部件节点 + 30+故障节点 + 维护操作节点
-- **160条边**：`HAS_FAULT`（部件→故障）+ `REQUIRES`（部件→维护操作）
-- **语义查询**：基于embedding余弦相似度匹配，阈值τ=0.5
-
----
-
-## 实验结果
-
-<img src="docs/images/experiment_results.png" width="800" alt="Experiment Results">
-
-### 系统稳定性
-
-| 指标 | 长时间运行(50次) | 并发查询(15次) |
-|------|:---:|:---:|
-| 成功率 | **100%** | **100%** |
-| 平均响应时间 | 0.65s | 2.59s |
-
-### 鲁棒性测试
-
-| 异常输入类型 | 结果 | 响应时间 |
-|------------|:---:|:---:|
-| 空输入 | 通过 | 0.66s |
-| 超长输入 | 通过 | 0.82s |
-| 特殊字符 | 通过 | 0.62s |
-| 乱码 | 通过 | 0.62s |
-| 英文输入 | 通过 | 0.61s |
-| 混合输入 | 通过 | 0.64s |
-
-> 上表是研究版（LLM 可用）的历史实测；纯 Python 内核的同类检查由
-> `eval --negative` 与 `system_validation.py` 负责，结论以重跑输出为准。
-
-### 数据覆盖度
-
-<img src="docs/images/data_coverage.png" width="400" alt="Data Coverage">
-
-| 数据类型 | 数量 |
-|---------|:---:|
-| 故障案例 | 30 |
-| 技术文档 | 10 |
-| 运维手册 | 10 |
-| 问答对 | 10 |
-| 覆盖部件 | 12 |
-| 故障类型 | 30 |
-| 知识图谱节点 | 162 |
-
-### 自适应α分布
-
-<img src="docs/images/alpha_distribution.png" width="700" alt="Alpha Distribution">
-
----
-
-## 零依赖纯 Python 检索内核（主线）
-
-`sentence-transformers` 会连带安装 PyTorch（约 2GB），`rank-bm25`、`gradio` 等也都是外部依赖。
-为此项目在 `src/pure_rag/` 下另外实现了一套**只用 Python 标准库**的检索内核，与重依赖版并存，
-两者共用同一份数据与知识图谱：
-
-| 能力 | 常依赖版 | 纯 Python 版 |
-|------|---------|-------------|
-| 中文分词 | jieba | 领域词典 + 正向最大匹配 + 二元组，并可无监督发现新词 |
-| 关键词检索 | rank-bm25 | 手写 Okapi BM25（倒排表 + 平滑 IDF） |
-| 语义检索 | text2vec-base-chinese（768 维） | 手写 TF-IDF 稀疏向量 + 倒排索引 + 余弦相似度 |
-| 融合权重 | MLP + 规则先验 | 规则先验自适应 α + RRF 多路合并 + MMR 多样性重排 |
-| 知识图谱 | embedding 余弦匹配 | TF-IDF 语义匹配 + 同义词表（解决"变速箱 → 齿轮箱"） |
-| 答案生成 | LLM API | 抽取式摘要（默认），可选 LLM（标准库 urllib 直连） |
-| 数据导入 | 需自行扩展 | 自动纳入 `data/user_docs/` 的 txt / md / json / csv / **docx**（zipfile 解析），支持 `add` 增量追加 |
-| 结果展示 | 纯文本 | 命中词字符级高亮（终端 ANSI / Web `<mark>` / 记录 Markdown 加粗） |
-| 引用定位 | 无 | 答案每条要点带 `doc_id` + 字符区间，Web 上点击即跳到原文该句 |
-| 结构化输出 | 无 | 检索到故障案例时输出「症状 / 原因 / 诊断 / 解决方案 / 预防措施」卡片 |
-| 打分明细 | 无 | `explain` 展示每个查询词对 BM25 / TF-IDF 得分的贡献 |
-| 参数调优 | 手工 | `tune` 网格搜索分块与融合参数并落盘生效 |
-| 评测集 | 15 条 QA | **1473 条分层评测集**（8 层，含口语化查询常驻层）：由语料自动推导、确定性构建、一键出报告 |
-| 语料规模 | 固定 66 篇 | 自带 65 篇 + 可生成 1203 篇规模化语料（确定性、可复现） |
-| 消融实验 | 仅研究版内部 | `ablation` 逐项开关模块并输出对比表（含固定 α 扫描与负面结果） |
-| 对话记录 | 无 | `chat` 的 `/save` 或 `--log` 导出带来源的 Markdown 记录 |
-| 拒答 | 无 | 双判据：覆盖率不足 + 图谱校验部件×故障组合不存在，并指出该故障实际属于哪个部件 |
-| 持续集成 | 无 | `.cnb.yml`：PR 与 main 自动跑单测 + 评测，Recall 低于 0.9 直接失败 |
-| Web 界面 | Gradio | `http.server` 对话式单页应用（多轮会话 + 引用定位） |
-| 第三方依赖 | 10+ 个包 | **0 个** |
-
-### 当前实测数据
-
-下表全部由脚本从真源生成，不许手写；语料或评测变化后重跑：
-`python src/rag_cli.py eval --report` 再 `python src/gen_readme_facts.py`（校验漂移用 `--check`）。
-
-<!-- BEGIN AUTO:FACTS (generated by: python src/gen_readme_facts.py) -->
-
-| 项 | 值 | 真源 |
-|---|---|---|
-| 内核版本 | 1.0.0 | `pure_rag.__version__` |
-| 语料规模 | 1269 篇 / 1273 分块 / 词表 4179 词 （新词发现 276 个） | `data/pure_index/meta.json` |
-| 知识图谱 | 162 节点 / 160 边 | `data/knowledge_graph.json` |
-| 评测集 | 1473 条（8 层） | `data/eval_set.json` |
-| 回答层 Recall@3 | 97.62% | `python src/rag_cli.py eval --report` |
-| 口语化层 Recall@3 | 58.00%（53 条） | 同上 |
-| 近邻负例拒答 | 100.00% | 同上 |
-| 域外问题拒答 | 100.00% | 同上 |
-| 单元测试 | 109 项 | `python -m unittest tests.test_pure_rag` |
-
-<!-- END AUTO:FACTS -->
-
-### 用法（无需安装任何依赖）
+No `pip install`, no model required:
 
 ```bash
-python src/simulate_corpus.py                      # 生成规模化测试语料（可选，65 篇 → 1269 篇）
-python src/rag_cli.py build                        # 构建索引（分词 + BM25 + TF-IDF + 新词发现）
-python src/rag_cli.py add 新资料.docx               # 增量追加（不重建整个索引）
+python src/rag_cli.py build                                  # build index (tokenize + BM25 + TF-IDF + new-word discovery)
 python src/rag_cli.py ask "齿轮箱温度过高应该怎么处理？" --show-docs
-python src/rag_cli.py chat --log                   # 交互式多轮问答，退出时自动导出记录
-python src/rag_cli.py explain "变速箱异响怎么排查？"  # 查看逐词打分明细
-python src/rag_cli.py eval -n 15 --robust          # 自召回 + 改写查询鲁棒性评测
-python src/rag_cli.py eval --negative              # 拒答能力评测 + 阈值标定表
-python src/rag_cli.py eval --report                # 分层评测报告（落盘 report.md + report.json）
-python src/rag_cli.py --min-coverage 0 ask "..."   # 临时关闭拒答（默认阈值 0.35）
-python src/rag_cli.py tune --quick                 # 网格搜索最优参数（去掉 --quick 为完整网格）
-python src/rag_cli.py ablation                     # 消融实验表（各模块贡献 + 固定 α 扫描）
-python src/rag_cli.py stats                        # 索引统计
-python src/rag_cli.py serve --port 8000            # 零依赖 Web 界面
+python src/rag_cli.py chat                                   # interactive multi-turn QA
+python src/rag_cli.py serve --port 8000                      # open http://127.0.0.1:8000
 ```
 
-把自有资料（含 Word 文档）放进 `data/user_docs/` 后重新 `build` 即可被检索到；也可以直接
-`add 文件/目录` 增量入库（只对新增文档分块分词，旧文档复用持久化的词序列）。
+Retrieval and generation are two separate layers. Without `LLM_API_KEY` (or with `DISABLE_LLM=true`), retrieval still returns documents and matched terms, and generation degrades to an extractive answer (`mode` is `extractive`) — it never errors, hangs, or returns an empty shell just because no model is configured.
 
-`ask --show-docs` 除了高亮命中词，还会打印每条要点在原文中的位置：
+To import your own material: drop files into `data/user_docs/` and re-run `build`, or add them incrementally with `python src/rag_cli.py add <file/dir>` (only new documents are chunked and tokenized; existing ones reuse the persisted token sequences).
 
-```
-要点定位（原文中的字符区间）：
-  1. doc35（qa_pairs/故障诊断）字符 22–62
-  2. doc5（fault_cases/齿轮箱）字符 28–50
-```
+## CLI
 
-Web 界面上这些要点可直接点击，跳转并高亮对应的来源文档；问故障类问题时还会额外渲染
-「症状 / 原因 / 诊断 / 解决方案 / 预防措施」卡片。
+Entry point `python src/rag_cli.py <subcommand>`, all real implementations:
 
-### Web 界面（对话式）
-
-`python src/rag_cli.py serve --port 8000` 后打开 `http://127.0.0.1:8000`，是个普通聊天机器人的样子：
-上方会话流、下方输入框，Enter 发送、Shift+Enter 换行，可以不断追问（“那多久换一次？”、“它呢？”）。
-
-| 区域 | 内容 |
+| Subcommand | Purpose |
 |---|---|
-| 顶栏 | 模型状态（已启用 / 不可用（带失败原因）/ 未启用）与语料规模，每轮问答后刷新 |
-| 答案气泡 | 自然语言答案（转义后渲染粗体）、meta 行（生成方式/alpha/检索方法/耗时/候选/图谱命中）、拒答与降级提示条 |
-| 引用 | 答案里的 `[1]` `[2, 3]` `[2-5]` 都可点击，多编号引用会同时描边全部对应来源并滚到第一条 |
-| 折叠区 | 故障卡片（表格）、要点定位（点击跳原文并展示带上下文的摘录）、引用来源（含知识图谱条目） |
-| 参数 | 检索方法 / top-k / 固定 alpha（留空自适应）/ 新建会话 / 轮次计数 |
-| 会话 | 服务端按 `session_id` 存最近 8 轮做指代消解，浏览器本地存最近 10 轮，刷新不丢记录 |
+| `build` | Build the index (tokenize + BM25 + TF-IDF + unsupervised new-word discovery) |
+| `ask "<question>" [--show-docs]` | Single-shot QA; `--show-docs` prints each point's character span in the source |
+| `chat [--log]` | Interactive multi-turn QA; `--log` or `/save` exports a Markdown transcript with sources |
+| `add <file/dir>` | Append documents incrementally without rebuilding the whole index |
+| `explain "<question>"` | Per-query-term contribution to BM25 / TF-IDF scores |
+| `stats` | Index statistics and model availability status |
+| `serve --port <p>` | Start the zero-dependency web UI |
+| `eval [-n N] [--report] [--negative] [--robust]` | Retrieval evaluation / layered report / refusal calibration |
+| `tune [--quick]` | Grid-search chunk and fusion parameters, persist and apply |
+| `ablation` | Ablation table: toggle each module and compare |
 
-接口路由（无框架、无 CDN，前端三个文件就在 `src/pure_rag/web/`）：
-
-```text
-GET  /                     对话页
-GET  /static/style.css     样式    GET /static/app.js  逻辑（只允许白名单内文件）
-POST /api/query            问答，入参 {question, top_k, method, alpha, session_id}
-POST /api/session/reset    清空该会话的多轮上下文
-GET  /api/stats            索引与模型状态
-```
-
-检索层仍是无状态的：不带 `session_id` 就是单轮问答，多轮只影响指代补全与上下文。
-
-作为库调用：
+As a library:
 
 ```python
 import sys; sys.path.insert(0, "src")
@@ -238,471 +78,155 @@ engine = RAGEngine(use_llm=False)
 result = engine.query("齿轮箱温度过高应该怎么处理？")
 print(result["answer"])
 for doc in result["retrieved_docs"]:
-    print(doc["score"], doc["matched"], doc["metadata"]["title"])   # matched 为命中词
+    print(doc["score"], doc["matched"], doc["metadata"]["title"])   # matched = hit terms
 ```
 
-测试与索引文件：
+## Web UI
 
-```bash
-python -m unittest tests.test_pure_rag -v     # 项数见上方“当前实测数据”表，由脚本统计
-```
-`data/pure_index/` 下为 `documents.json`（分块）、`tokens.json`（词序列缓存）、`bm25.json`、
-`tfidf.json`、`meta.json`、`tuning.json`，全部可重新生成，已加入 `.gitignore`。
+After `serve`, open `http://127.0.0.1:8000`. It looks like an ordinary chatbot: conversation stream on top, input box at the bottom, Enter to send, Shift+Enter for a newline, and you can keep following up ("how often should it be replaced?", "what about it?").
 
-### 语料规模：默认 65 篇 → 可扩到 1269 篇
+- Top bar: model status (enabled / unavailable with the failure reason / not enabled) and corpus size, refreshed each turn.
+- Answer bubble: natural-language answer, a meta line (generation mode / alpha / method / latency / candidates / graph hits), and refusal / degradation hints.
+- Citations: `[1]` `[2, 3]` in the answer are clickable; multi-number citations outline all sources at once and scroll to the first.
+- Collapsible sections: fault card, point locations (click to jump to the source and show an excerpt), citation sources.
+- Sessions: the server keeps the last 8 turns per `session_id` for coreference resolution; the retrieval layer itself stays stateless.
 
-项目自带的合成数据只有 66 篇，指标差异常常只有 1~3 条样本，**不足以支撑结论**。
-`src/simulate_corpus.py` 可以生成一套规模大一个数量级的运维语料（确定性、可复现）：
+Routes (no framework, no CDN; the three front-end files live in `src/pure_rag/web/`):
 
-```bash
-python src/simulate_corpus.py              # 默认：1203 篇 → 合计 1269 篇 / 1473 条评测
-python src/simulate_corpus.py --scale 0.1  # 十分之一规模，便于快速验证
-```
-
-**保真度的边界**（重要）：风场名取自公开数据集 OpenWindSCADA 收录的 25 个真实场站，
-机型用真实型号命名，部件/故障词表沿用项目知识图谱；**其余全是模板生成的** ——
-机组编号、时间、症状、停机时长、报告数字都是虚拟的，各故障的相对频次也只是
-按公开故障统计粗略设定，**不是实测分布**。它的用途是"把样本量做够、把语料做出干扰"，
-不是当作真实数据使用。
-
-### 评测结果快照
-
-与上方“当前实测数据”同源（`data/pure_index/report.md`），由
-`python src/rag_cli.py eval --report` 在当前默认语料（1269 篇）上生成：
-
-| 层 | 条数 | Recall@3 | MRR | 拒答率 |
-|------|------|---------|-----|--------|
-| QA 原句 | 209 | 98.56% | 0.9657 | — |
-| 同义改写 | 190 | 94.74% | 0.9149 | — |
-| 故障案例查询 | 581 | 96.56% | 0.8669 | — |
-| 文档标题查询 | 406 | **100%** | 0.9951 | — |
-| 近邻负例（组合不存在） | 18 | — | — | **100%** |
-| 域外问题 | 10 | — | — | **100%** |
-| 域内缺资料 | 6 | — | — | 50.00% ← 见下方已知边界 |
-| 口语化查询（弱标注） | 53 | 58.00% | 0.4067 | 66.67% |
-| **回答层汇总** | **1386** | **97.62%** | — | — |
-
-> 回答层汇总的口径是 4 个「自召回」层（QA/案例/文档）。`口语化查询` 是人工/真实问法的常驻占位层，
-> 故意单列：它用 `data/human_questions.json` 里由人写下的 50 条口语提问 + 3 条无效组合，
-> 命中判据是「同类工单」而非指定某条，用来暴露合成评测高估可用率的盲区（详见下文「口语化查询验证」）。
-
-> 语料/分块/词表、平均与 P95 查询耗时、单元测试项数等可变指标不再手写，
-> 统一由 `python src/gen_readme_facts.py` 写入上方“当前实测数据”表。
-
-> **规模一上来，结论会变**。同一套代码在 65 篇小语料上是「回答层 100%、模块只增不减」，
-> 在 1269 篇上就露出真问题：案例查询掉到 96.56%（大量近重复工单需要靠风场/机组编号区分）、
-> 同义改写 94.74%、而且**查询扩展从"中性"变成了负收益**（详见下方消融）。
-
-### 分层评测集
-
-`python src/rag_cli.py eval --report` 会生成一份**可复现的分层评测报告**
-（`data/pure_index/report.md`，同名 `.json` 供后续对比）。评测集由语料自动推导、**无需人工标注**，
-因此能随语料一起演进；确定性构建保证任何人跑出同样的评测集（规模化语料下为 8 层共 1473 条）：
-
-| 层 | 来源 | 条数 | 目标定位方式 |
-|---|---|---|---|
-| `qa_verbatim` | QA 对原句 | 209 | 该问题所在块（按问题文本） |
-| `qa_rewrite` | 原句的同义改写（齿轮箱 → 变速箱） | 190 | 同上的块 |
-| `fault_case` | 故障案例「部件 + 故障类型」 | 581 | 该案例块（按故障 ID） |
-| `doc_title` | 技术文档 / 运维手册标题 | 406 | 该文档的任意块（按 source + title） |
-| `near_miss` | 语料中不存在的「部件 × 故障」组合 | 18 | 无（期望严格拒答） |
-| `negative_ood` | 域外问题 | 10 | 无 |
-| `negative_missing` | 域内但缺资料 | 6 | 无 |
-| `human_like` | `data/human_questions.json` 里人写的口语化提问 | 53 | 同类工单（按部件 + 故障类型匹配任意一条） |
-
-`--rebuild` 可重新生成（语料变了就该重建），报告里会写明日志：
-
-```
-- 生成时间：2026-10-16 14:41:54
-- 检索引擎：纯 Python 内核 v1.0.0（零第三方依赖，Python 3.12.15）
-- 语料：66 篇 → 70 个分块，词表 1747 词
-- 评测集：114 条（7 层，由语料自动推导）
-- 参数：top_k=3、method=hybrid、融合权重 α 自适应、拒答阈值 0.35
+```text
+GET  /                   chat page
+GET  /static/style.css   styles       GET /static/app.js   logic (whitelisted files only)
+POST /api/query          QA, body {question, top_k, method, alpha, session_id}
+POST /api/session/reset  clear this session's multi-turn context
+GET  /api/stats          index and model status
 ```
 
-### 消融实验
+## 📊 Visualization
 
-`python src/rag_cli.py ablation` 逐项开关各模块（每组配置都在独立目录重建索引后评测，
-1269 篇语料 / 1420 条评测，约 50 秒跑完）：
+The architecture, workflow, sequence, and data-flow diagrams are generated with Archify and shipped as self-contained interactive HTML under [`docs/archify/`](docs/archify/) (validated to the showcase profile). Open them in a browser — they support zoom, pan, search, and relationship tracing:
 
-| 配置 | 说明 | Recall@k | 改写召回 | 案例召回 | MRR | 术语覆盖率 | 域外拒答 | 近邻拒答 | 耗时 |
-|---|---|---|---|---|---|---|---|---|---|
-| ① 仅 BM25 | 关键词检索基线 | **98.05%** | 92.63% | 97.76% | **0.9566** | 65.51% | 100.00% | 0.00% | 0.96 ms |
-| ② 仅 TF-IDF 向量 | 语义检索基线 | 95.67% | 84.74% | 96.39% | 0.8900 | 54.52% | 100.00% | 5.56% | 0.84 ms |
-| ③ 混合 · 固定 α=0.7 | 两路加权融合 | 96.83% | 86.84% | 97.07% | 0.9286 | 66.74% | 100.00% | 0.00% | 1.05 ms |
-| ④ + 自适应 α | 按查询特征预测权重 | 96.83% | 87.37% | 97.07% | 0.9313 | 62.30% | 100.00% | 0.00% | 1.11 ms |
-| ⑤ + 同义词打通 | 索引期标准词↔别名扩展 | 97.47% | 94.74% | 96.21% | 0.9250 | 54.37% | 100.00% | 27.78% | 1.13 ms |
-| ⑥ + 查询扩展 | 别名/关键词变体多路召回 + RRF | 95.53% | 96.84% | 90.88% | 0.8895 | 56.28% | 100.00% | 27.78% | 2.05 ms |
-| ⑦ + MMR 重排 | 抑制内容重复的文档 | 96.68% | **98.95%** | 92.94% | 0.8938 | 55.41% | 100.00% | 27.78% | 1.66 ms |
-| ⑧ + 知识图谱 | 图谱上下文 + 组合校验 | 96.68% | 98.95% | 92.94% | 0.8938 | **61.80%** | 100.00% | **100.00%** | 1.69 ms |
-| ⑨ 完整 − 新词发现 | 对照：关闭语料新词发现 | 97.19% | **100.00%** | 93.46% | 0.9111 | 64.86% | 100.00% | 100.00% | 2.72 ms |
+- [Interactive architecture panorama](docs/archify/architecture-panorama.html) — every module, layer boundaries, external service, and the mainline-vs-legacy split.
+- [Q&A workflow](docs/archify/workflow-panorama.html) — the full path from a question to an answer, including the pre-generation refusal gate and the graph side branch.
+- [/api/query call sequence](docs/archify/sequence-panorama.html) — one request traced across every component in time order.
+- [Data-flow panorama](docs/archify/dataflow-panorama.html) — corpus -> ingest -> index -> consumption, all reproducible.
 
-固定 α 扫描（只变 α，其余固定为「同义词 + 无扩展 + 无 MMR + 无图谱」）：
+The banner at the top is generated by [`scripts/visualization/generate_banner.py`](scripts/visualization/generate_banner.py), which reads version, test count, corpus size and Recall from the real sources at runtime (nothing is hard-coded).
 
-| 配置 | Recall@k | 改写召回 | 案例召回 | MRR | 域外拒答 | 近邻拒答 |
-|---|---|---|---|---|---|---|
-| **α = 0.3** | **98.12%** | 94.74% | 97.25% | **0.9583** | 100.00% | 16.67% |
-| α = 0.4 | 98.05% | 94.74% | 97.07% | 0.9506 | 100.00% | 22.22% |
-| α = 0.5 | 97.91% | 94.74% | 97.07% | 0.9436 | 100.00% | 22.22% |
-| α = 0.6 | 97.76% | 94.74% | 96.90% | 0.9341 | 100.00% | 22.22% |
-| α = 0.7 | 97.47% | 94.74% | 96.21% | 0.9240 | 100.00% | 27.78% |
-| α = 0.8 | 96.90% | 94.74% | 94.84% | 0.9093 | 100.00% | 27.78% |
-| α = 自适应（默认） | 97.47% | 94.74% | 96.21% | 0.9250 | 100.00% | 27.78% |
+## Current measured figures
 
-**结论（如实记录，含负面结果与"规模反转"）**
+Every value below is generated by a script from the real sources — never hand-written. After the corpus or evaluation changes, re-run `python src/rag_cli.py eval --report`, then `python src/gen_readme_facts.py` (use `--check` to detect drift).
 
-- **小语料上的结论会被规模推翻**。同一套代码在 65 篇上「回答层 100%、模块只增不减」，
-  在 1269 篇上：**仅 BM25 反而超过完整配置**（Recall 98.05% vs 96.68%，MRR 0.9566 vs 0.8938）。
-  原因是混合检索、图谱、MMR 都会引入语义相近的干扰项，语料小的时候没有足够多的"错误候选"
-  来暴露这一点。
-- **查询扩展是负收益，已改为默认关闭**：⑥ 相比 ⑤，整体召回 97.47% → 95.53%、案例召回
-  96.21% → 90.88%、延迟 1.13ms → 2.05ms；它唯一的收益是改写召回 +2.1pp，不划算。
-  机理是多路召回经 RRF 合并后稀释了精确匹配。
-- **索引期同义词打通依然有效**：改写召回 87.37% → 94.74%（+7.37pp），是小语料上的 4 倍多。
-- **自适应 α 仍然跑不赢固定低 α**：α=0.3 时 MRR 0.9583，自适应只有 0.9250，且 7 个 α 取值
-  呈**单调**趋势（α 越小越好），比小语料上干净得多。`tune` 子命令独立给出同样结论。
+<!-- BEGIN AUTO:FACTS (generated by: python src/gen_readme_facts.py) -->
 
-### 口语化查询验证：合成评测的 97% 是「假象」
-
-`data/human_questions.json` 用 50 条**模拟一线工程师口语提问**（只描述现象、省略/替换部件名、
-带冗余）做了一组对照，自己当标注员标上对应部件+故障，看检索是否把同类工单送进前 3：
-
-| 配置 | 口语查询 Recall@3 |
-|---|---|
-| BM25-only (α=0.0) | **68.0%** |
-| α=0.3 | 64.0% |
-| α=0.5 | 58.0% |
-| α=0.7 | 56.0% |
-| α=0.8 | 54.0% |
-| 向量-only (α=1.0，即 TF-IDF) | 50.0% |
-| adaptive (默认) | 58.0% |
-
-关键结论（用 `python src/pure_rag/human_eval.py` 可复现，确定性）：
-
-- **「α 越小越好」的方向没反转** —— 两套语料都偏向低 α / BM25。之前的担心（口语查询会更依赖语义）
-  被数据推翻了：口语查询下纯 BM25 反而最好。
-- **但绝对质量从 97.62% 掉到 50~68%**。差在哪？合成评测的查询是从文档字段派生的，
-  和答案共享风场名/机组号/故障名这些稀有词，等于「报答案找文档」；真人提问用现象描述
-  （"嗡嗡响" vs 文档里的"异响"、"发烫限电" vs "绕组温度 130℃"），存在**词汇鸿沟**。
-- **本内核的「向量」通道其实是 TF-IDF**（同一套 jieba 分词），做不了真正的语义匹配，
-  所以连向量通道也跨不过这个鸿沟。这正是人工标注/真实问法揭示的真问题：
-  **差距不在调参，在于缺少真语义表示**（稠密向量模型）或更丰富的同义/ paraphrase 扩展。
-
-> 所以「为什么需要人工标注」有了一个具体答案：没有它，97% 的好成绩会让人误以为系统已经可用，
-> 而真实查询的可用率其实只有一半多。这套口语化问题现已作为常驻评测层 `human_like` 纳入评测集
-> （见 `src/pure_rag/datasets.py` 的 `build_human_like_layer` 与 `src/pure_rag/human_eval.py`），
-> 后续应逐步替换为真实用户问法 + 相关性标注。
-- **知识图谱的价值主要在拒答**：把「近邻负例拒答率」从 27.78% 拉到 **100%**，
-  同时术语覆盖率 +6.4pp；检索排序仍然分毫不动（符合"图谱不参与打分"的设计）。
-- **MMR 提升改写召回**（96.84% → 98.95%）**但压低案例召回**（96.21% → 92.94%），是典型的
-  多样性/精确性取舍。
-- **新词发现仍有取舍**：关闭后 Recall 97.19%、MRR 0.9111 更好，但术语覆盖率 64.86% vs
-  61.80% 更差（方向与小语料一致）。
-
-> 数据量大了之后，差异量级从「1~3 条样本」升到「20~30 条样本」，趋势也自洽了，
-> 但**它仍然是我自己生成的语料**：查询是从文档字段派生的，与真实用户问法有差距。
-> 要拿到可发表的结论，下一步仍需人工标注 + 真实问法（见 `src/pure_rag/ablation.py` 的用法）。
-
-**拒答有两条判据，各治一类问题**：
-
-1. **覆盖率**（IDF 加权查询词覆盖率 + 至少命中一个多字词）：衡量*问题是否落在知识库的用词范围内*。
-   **域外问题 100% 拒答**（10/10），用词完全不沾边时很可靠。
-2. **组合校验**（知识图谱 `部件 --HAS_FAULT--> 故障` 归属关系）：衡量*这个搭配是否真的存在*。
-   治的是「偏航系统制动器失效」这类**语料里不存在的部件×故障组合** —— 查询词全是领域实词，
-   覆盖率判据完全抓不住（实测只有 5.56% 拒答），改用图谱校验后达到 **100%**：
-
-```
-问：偏航系统制动器失效怎么处理？
-答：知识库中没有收录「偏航系统」的「制动器失效」故障（该故障在知识库里属于「制动系统」）。
-    可以改问「制动系统制动器失效怎么处理？」，或换一个与该部件相关的故障描述。
-```
-
-**仍然存在的边界**：`域内缺资料 16.67% 拒答`（1/6）—— 问价格、某风场实际发电量、备件型号，
-覆盖率是满的、组合也成立，只是资料里没有这个信息。识别这类问题需要判断"资料里有没有答案"，
-超出了当前判据的能力范围。
-
-若要让覆盖率判据更保守可调高阈值：标定表显示 0.5 时域外拒答率升到 81%，但实测会误拒
-「齿轮箱异响」这类短查询（覆盖率 0.445），故默认取 0.35。
-
-### 核心实现
-
-- **BM25**：`score(q,d) = Σ_t IDF(t)·tf·(k1+1) / (tf + k1·(1-b+b·|d|/avgdl))`，IDF 采用平滑式 `ln(1+(N-df+0.5)/(df+0.5))`，检索时只遍历查询词命中的文档
-- **TF-IDF**：亚线性词频 `1+ln(tf)`，平滑 IDF `ln((1+N)/(1+df))+1`，文档向量 L2 归一化后点积即余弦相似度
-- **自适应 α**：按查询特征预测融合权重（标准编号 0.3 / 数值规格 0.4 / 术语密集 0.5 / 维护操作 0.6 / 故障诊断 0.7 / 性能优化 0.75 / 系统原理 0.8）
-- **多路召回**：同义词与关键词变体查询各召回一路，经 RRF 合并后按 0.3 权重加回主结果
-- **MMR 重排**：`λ·相关性 − (1−λ)·与已选文档的最大相似度`，抑制重复内容
-- **新词发现**：词频 + 互信息 + 左右邻接熵的无监督筛选，自动扩充领域词典并随索引持久化
-- **同义词打通**：查询侧别名→标准词扩展 + 索引侧标准词→别名扩展，配合最大匹配分词，"变速箱"与"齿轮箱"可直接互相命中
-- **答案生成**：句子级 IDF 加权打分 + 结构化字段加成 + 近似去重 + 相关性下限过滤，输出带来源标注的要点
-- **命中高亮**：逐字符归一化（长度不变）后用 `str.find` 定位，得到可映射回原文的字符区间，再渲染成 ANSI / `<mark>` / Markdown 三种载体
-- **引用定位**：`split_sentences_with_offsets` 切句时就保留字符区间（句末标点归前句、换行只作分隔），要点因此能反查原文精确位置；文档片段与要点摘录都在服务端渲染成转义后的 HTML，前端只负责切换高亮
-- **故障卡片**：按「字段：值」解析故障案例文本，取排序最靠前的完整案例整理成结构化卡片；字段少于 4 个的块不认，避免普通文档里恰好出现的「原因：」被误判
-- **增量追加**：词序列随索引持久化，新增文档只需分块分词自己，再重建 BM25/TF-IDF 的统计结构（IDF 依赖全局 df，无法局部更新）
-- **置信度与拒答**：判据一是 `coverage = Σ IDF(命中的查询词) / Σ IDF(全部查询词)`，命中需至少含一个多字词（单字会靠「科幻电影」的「电」蒙混过关）；判据二是**图谱组合校验**（`kg.validate_combination`），查 `部件 --HAS_FAULT--> 故障` 是否存在，专门拦「偏航系统制动器失效」这类词对不存在的伪问题。两条判据都在生成之前判定，省下一次 LLM 调用
-- **可解释性**：`explain` 输出每个查询词在两路召回上的独立贡献，便于定位"为什么这篇文档排第一"
-- **参数调优**：`tune` 在自召回 + 改写查询两组指标上做网格搜索，结果写入 `tuning.json` 并自动生效
-
----
-
-## 本地部署（纯 Python，主线）
-
-三步跑通，不需要 `pip install` 任何包，也不需要大模型：
-
-```bash
-python src/rag_cli.py build                          # 构建索引（分词 + BM25 + TF-IDF + 新词发现）
-python src/rag_cli.py ask "齿轮箱温度过高应该怎么处理？" --show-docs
-python src/rag_cli.py serve --port 8000              # 打开 http://127.0.0.1:8000
-```
-
-要复现本文评测表所依据的规模化语料与指标：
-
-```bash
-python src/simulate_corpus.py                        # 确定性生成 1203 篇测试语料
-python src/rag_cli.py build
-python src/rag_cli.py eval --report --min-recall 0.9
-python src/gen_readme_facts.py                       # 刷新 README 的“当前实测数据”块
-```
-
-检索与生成是分开的两层：不配置 `MODELSCOPE_API_KEY`（或设 `DISABLE_LLM=true`）时，
-检索照常返回文档与命中词，生成层降级为抽取式答案（`mode` 字段会写成 `extractive`），
-不会因缺大模型而报错或空转。
-
-### 接入大模型（可选，仍不装任何包）
-
-生成层用标准库 `urllib` 直连 OpenAI 兼容接口，**不需要 SDK**（不要装 `zhipuai`）。
-`config.env`（已 gitignore，不会入库）里四个键即可：
-
-```env
-LLM_PROVIDER=zhipu            # zhipu | modelscope，决定默认服务地址与免费档模型池
-LLM_API_KEY=your_api_key_here
-LLM_MODELS=glm-4-flash-250414:1,glm-4.7-flash:2,glm-4v-flash:3,glm-4-flash:4,glm-4.5-flash:5
-DISABLE_LLM=false
-```
-
-`LLM_MODELS` 格式为 `name:priority`，失败自动切下一个并进入 60s 冷却；**所有免费档轮流使用**：
-一次调用成功后会自动换到下一个模型，轮转位存在 `data/pure_index/llm_rotation.json`（可删，删了就从头开始转），
-所以命令行一次一个新进程也不会总打同一个模型。本条是哪个模型答的会写在答案里（CLI 头部与 Web 顶栏）。
-**只把免费档放进池子**，否则真实消耗余额；本项目实测结果（关推理后的延迟）：
-
-| 模型 | 实测 | 处置 |
+| Item | Value | Source |
 |---|---|---|
-| glm-4-flash-250414 | 200，约 2.4s，正文干净 | 入池，优先级 1 |
-| glm-4.7-flash | 200，约 4.0s（带 `thinking=disabled` 后正文干净；不关时推理占满 token 到“4.”就断了） | 入池，优先级 2；偶发 429/1305 过载会自动跳下一个 |
-| glm-4v-flash | 200，约 5.9s，多模态也能纯文本问答 | 入池，优先级 3 |
-| glm-4-flash | 200，约 6.1s（高峰时到 16s），正文干净 | 入池，优先级 4 |
-| glm-4.5-flash | 200，约 27s（偶发到 50s+），推理走 reasoning_content | 入池，优先级 5（最后备选） |
-| glm-z1-flash | 200，但 `thinking.type=disabled` 也关不住推理：17s 后仍是半段思考被 token 截断，拿不到正文 | 不入池（代码保留截断检测，强行加回来只会白等 17s） |
-| glm-4.6-flash | 403/1220 无权访问 | 不入池 |
-| glm-5.x / glm-4-air / airx / long / plus | 429/1113 余额不足（收费档） | 不得入池 |
+| Kernel version | 1.0.0 | `pure_rag.__version__` |
+| Corpus | 1269 docs / 1273 chunks / vocab 4179 (276 discovered) | `data/pure_index/meta.json` |
+| Knowledge graph | 162 nodes / 160 edges | `data/knowledge_graph.json` |
+| Eval set | 1473 items (8 layers) | `data/eval_set.json` |
+| Answer-layer Recall@3 | 97.62% | `python src/rag_cli.py eval --report` |
+| Colloquial-layer Recall@3 | 58.00% (53 items) | same |
+| Near-miss refusal | 100.00% | same |
+| Out-of-domain refusal | 100.00% | same |
+| Unit tests | 110 | `python -m unittest tests.test_pure_rag` |
 
-几条约定：
+<!-- END AUTO:FACTS -->
 
-- **错误码会转成可执行提示**：1113 会提示“该模型属收费档，请从 LLM_MODELS 移除”，
-  1220 提示换免费档，1305 提示“服务端临时过载，稍后重试”，不再只报一个 429。
-- **轮流用免费档**：模型池里每个免费模型都会轮到，不会只用一个用到死；被截断、超时、过载的模型
-  会自动跳到下一个，连续失败 3 次才进入 60s 冷却。
-- **评测不调模型**：`eval` / `ablation` / `tune` 默认强制抽取式（`eval --use-llm` 才开），
-  一千多条查询不应该去砸免费额度，也不能让非确定的生成污染指标。
-- **降级不静默**：LLM 失败或模型池全部冷却时，答案退回抽取式，并在 `llm_error` 里
-  带回报错原文（已含服务端 code/msg，能区分 1305 过载、1220 无权限、1113 余额不足），
-  命令行打 `[warn]` 行，Web 界面在答案下方显示红色提示。
-- **两个字段含义不同**：`stats` 里 `llm_configured` 只看配没配，`llm_enabled`
-  是当下可用状态（连续失败进入冷却后会是 false）。
+## Evaluation and known limits
 
-拒答判定在生成之前，所以弱相关问题根本不会去调模型；多轮 `chat` 与 Web 问答同样如此。
+The eval set is derived from the corpus and built deterministically, with no manual labeling (`python src/rag_cli.py eval --report` writes `data/pure_index/report.md`). To be honest about it:
 
-Windows 下命令行输出会遇到代码页问题（重定向时尤为常见），入口统一调
-`pure_rag.stdio.configure_streams()` 处理：终端保持原编码，重定向时切 UTF-8，
-编码不了的字符降级为转义而不中断命令。自有文档导入也支持 UTF-8 与 GB18030 两种编码。
+- **Synthetic-eval scores are inflated.** Synthetic queries are derived from document fields and share rare terms (farm name / unit id / fault name) with the answers — effectively "reading the answer to find the document" — so the answer layer reaches 97.62%. Measured with human-written colloquial questions in `data/human_questions.json` (symptoms only, component names omitted), real usability drops to 50-68%. The gap is not about tuning but the lack of true semantic representation: this kernel's "vector" channel is only TF-IDF, so it cannot bridge the lexical gap between "buzzing noise" vs "abnormal noise", or "overheating curtailment" vs "winding temperature 130C". Reproduce: `python src/pure_rag/human_eval.py` (deterministic).
+- **Scale overturns small-corpus conclusions.** The same code shows "answer layer 100%, modules only help" on 65 docs, but on 1269 docs plain BM25 beats the full configuration. Query expansion diluted exact matches after RRF merging and is now off by default. Toggle each module with `python src/rag_cli.py ablation` (includes fixed-alpha sweeps and negative results, reported as-is).
+- **Refusal has two criteria:** IDF-weighted query-term coverage (blocks out-of-domain questions, 100% measured) and knowledge-graph component-fault combination validation (blocks pseudo-questions like "yaw-system brake failure" whose terms all exist but the pair does not, and reports which component the fault actually belongs to).
+- **Remaining boundary:** in-domain-but-missing material (prices, a specific farm's actual output, spare-part model numbers) has full coverage and a valid combination, the info simply is not in the corpus — the current criteria cannot detect this.
 
----
+## Optional LLM
 
-## 快速开始（遗留研究版）
-
-> 以下是重依赖研究版（sentence-transformers + rank-bm25 + gradio）的流程，只作历史对照，
-> 不属主线；新改动一律落在纯 Python 内核。需要安装 10+ 个第三方包。
-
-### 环境要求
-
-- Python 3.10+
-- 2GB+ 内存（向量模型加载）
-
-### 安装
-
-```bash
-git clone https://github.com/your-username/WindRAG.git
-cd WindRAG
-pip install -r requirements.txt
-```
-
-### 配置
-
-创建 `config.env` 文件：
+The generation layer connects to an OpenAI-compatible endpoint via stdlib `urllib` — no SDK. A few keys in `config.env` (already gitignored, never committed):
 
 ```env
-# ModelScope API（可选，不配置则使用模板生成）
-MODELSCOPE_API_KEY=your_api_key_here
-MODELSCOPE_MODELS=Qwen/Qwen2.5-7B-Instruct:1,Qwen/Qwen2.5-72B-Instruct:2
-
-# 禁用LLM（仅使用模板生成）
+LLM_PROVIDER=zhipu            # zhipu | modelscope; sets default base URL and free-tier model pool
+LLM_API_KEY=your_api_key_here
+LLM_MODELS=glm-4-flash-250414:1,glm-4v-flash:3,glm-4-flash:4
 DISABLE_LLM=false
 ```
 
-### 构建索引
+Conventions:
+
+- `LLM_MODELS` format is `name:priority`; only models the account can call for free go into the pool. On failure it switches to the next and enters a 60s cooldown; the rotation index is stored in `data/pure_index/llm_rotation.json`.
+- **Evaluation never calls the model:** `eval` / `ablation` / `tune` force extractive by default, so thousands of queries do not burn free quota and non-deterministic generation cannot pollute metrics.
+- **Degradation is not silent:** when the LLM fails or the whole pool is cooling, the answer falls back to extractive and `llm_error` carries the server's original code/msg; the CLI prints a `[warn]` line and the web UI shows a notice under the answer.
+
+## Design trade-offs (zero dependency)
+
+`src/pure_rag/` implements the whole chain with the standard library; the heavy research version coexists but is never imported on the mainline path:
+
+| Capability | Usual dependency | Pure-Python mainline |
+|---|---|---|
+| Chinese tokenization | jieba | Domain dictionary + forward maximum match + bigrams, unsupervised new-word discovery |
+| Keyword retrieval | rank-bm25 | Hand-written Okapi BM25 (inverted list + smoothed IDF) |
+| Semantic retrieval | text2vec (768-dim) | Hand-written sparse TF-IDF vectors + inverted index + cosine |
+| Fusion weight | MLP + rule prior | Rule-prior adaptive alpha + RRF merge + MMR rerank |
+| Knowledge graph | embedding cosine match | TF-IDF semantic match + synonym table ("gearbox <-> transmission") |
+| Answer generation | LLM API | Extractive summary (default), optional LLM via urllib |
+| Web UI | Gradio | `http.server` chat single page, native HTML/CSS/JS |
+| Env config | python-dotenv | Self-written `.env` parser (`env.py`) |
+| Third-party deps | 10+ packages | 0 |
+
+The modules at `src/` root — `run_rag.py`, `build_index.py`, `gradio_app.py`, `adaptive_fusion.py`, `query_features.py`, `evaluation.py`, `system_validation.py`, `ablation_experiment.py`, `generate_images.py` — are the heavy research version, kept only for reference: not on the mainline, never imported on the pure-Python path. All new changes land in `src/pure_rag/`.
+
+## Project layout
+
+```text
+src/
+├── rag_cli.py            # pure-Python CLI entry
+├── gen_readme_facts.py   # README measured-figures block generator (from real sources, not hand-written)
+├── simulate_corpus.py    # scaled test-corpus generator (deterministic, reproducible)
+└── pure_rag/             # zero-dependency retrieval kernel (mainline)
+    ├── text_utils.py     # tokenization, new-word discovery, sentence split, synonyms
+    ├── query_analysis.py # question classification, adaptive alpha, query expansion
+    ├── bm25.py / tfidf.py / fusion.py / kg.py   # retrieval and fusion
+    ├── chunker.py / loader.py                    # chunking and document import
+    ├── generator.py      # extractive generation + optional LLM
+    ├── highlight.py      # hit highlighting (ANSI / HTML / Markdown)
+    ├── datasets.py / evaluator.py / tuner.py / ablation.py / human_eval.py   # evaluation
+    ├── env.py / stdio.py # config loader / stdio encoding hardening (survives Windows code pages)
+    ├── engine.py / cli.py # RAGEngine core / subcommands
+    └── web/              # chat front-end static assets (read by server.py via a whitelist)
+data/
+├── user_docs/            # your own docs (txt/md/json/csv/docx, indexed automatically)
+├── synthetic/            # synthetic data + refusal eval set
+├── pure_index/           # pure-Python index and tuning params (regenerable, not committed)
+└── generated/            # scaled test corpus (from simulate_corpus.py, regenerable)
+tests/test_pure_rag.py    # pure-Python kernel unit tests
+scripts/
+└── visualization/        # README asset generators (stdlib only)
+    └── generate_banner.py # renders docs/assets/banner.svg from real sources
+docs/
+├── assets/banner.svg     # generated hero banner (English text)
+└── archify/              # interactive architecture / workflow / sequence / dataflow HTML
+.cnb.yml                  # CI: unit tests + eval gate + README figures consistency
+Makefile                  # convenience targets wrapping python src/rag_cli.py
+README.md / README.zh-CN.md          # English main + Chinese companion
+CONTRIBUTING.md / CONTRIBUTING.zh-CN.md
+CHANGELOG.md / FAQ.md / SECURITY.md / AUTHORS / LICENSE
+```
+
+To reproduce the scaled corpus and metrics behind the tables above:
 
 ```bash
-# 1. 数据预处理
-python src/data_processing.py
-
-# 2. 构建向量+BM25索引
-python src/build_index.py
-
-# 3. 构建知识图谱
-python src/knowledge_graph.py
-
-# 4. 训练自适应融合模型（可选）
-python src/generate_training_data.py
-python src/adaptive_fusion.py
+python src/simulate_corpus.py        # deterministic test corpus (65 docs -> 1269 docs)
+python src/rag_cli.py build
+python src/rag_cli.py eval --report
+python src/gen_readme_facts.py       # refresh the "Current measured figures" block above
 ```
 
-### 启动Web界面
+> Corpus fidelity note: farm names come from the 25 real sites in the public OpenWindSCADA dataset, models use real designations, and the component / fault vocabulary follows the project knowledge graph; everything else (unit ids, timestamps, symptoms, downtime, report numbers) is template-generated and is not a measured distribution. Its purpose is to make the sample size large and the corpus noisy, not to serve as real data.
 
-```bash
-python src/gradio_app.py
-# 访问 http://localhost:7865
-```
+## Contributing, license and contact
 
-### 命令行使用
-
-```python
-from src.run_rag import WindTurbineRAG
-
-rag = WindTurbineRAG()
-result = rag.query("齿轮箱温度过高怎么处理？")
-
-print(result["answer"])
-```
-
----
-
-## 项目结构
-
-```
-WindRAG/
-├── src/                          # 核心源码
-│   ├── run_rag.py                # RAG系统主程序（研究版）
-│   ├── data_processing.py        # 数据预处理
-│   ├── build_index.py            # 索引构建（向量+BM25）
-│   ├── knowledge_graph.py        # 知识图谱构建与查询
-│   ├── model_manager.py          # 线程安全模型池管理
-│   ├── adaptive_fusion.py        # 自适应检索融合（MLP）
-│   ├── query_features.py         # 查询特征提取
-│   ├── generate_training_data.py  # 生成融合训练数据
-│   ├── evaluation.py             # 评估模块
-│   ├── system_validation.py      # 系统验证
-│   ├── ablation_experiment.py    # 消融实验
-│   ├── gradio_app.py             # Web界面
-│   ├── interactive_rag.py        # 交互式命令行问答
-│   ├── test_rag.py               # 检索/系统测试
-│   ├── query_models.py           # 模型可用性查询
-│   ├── rag_cli.py                # 纯 Python 版命令行入口
-│   ├── gen_readme_facts.py       # README 实测数据块生成器（从真源读取，不手写）
-│   ├── simulate_corpus.py        # 规模化测试语料生成器（确定性、可复现）
-│   └── pure_rag/                 # 零依赖纯 Python 检索内核
-│       ├── text_utils.py         # 分词、新词发现、句子切分、同义词
-│       ├── query_analysis.py     # 问题分类、自适应 α、查询扩展
-│       ├── bm25.py               # 手写 Okapi BM25
-│       ├── tfidf.py              # 手写 TF-IDF 稀疏向量索引
-│       ├── chunker.py            # 结构感知分块（带重叠）
-│       ├── loader.py             # 数据加载 + 自有文档导入（txt/md/json/csv/docx）
-│       ├── fusion.py             # 加权融合 / RRF / MMR
-│       ├── kg.py                 # 知识图谱检索增强
-│       ├── generator.py          # 抽取式生成 + 可选 LLM
-│       ├── highlight.py          # 命中高亮渲染（ANSI / HTML / Markdown）
-│       ├── datasets.py           # 分层评测集构建（由语料自动推导，确定性）
-│       ├── evaluator.py          # 分层评测 + 拒答评测 + 可复现报告
-│       ├── tuner.py              # 超参数网格搜索
-│       ├── ablation.py           # 消融实验（各模块贡献对比表）
-│       ├── env.py                # 极简 .env 加载器
-│       ├── stdio.py              # 标准流编码加固（Windows 代码页下不中断）
-│       ├── server.py             # 零依赖 Web 服务（静态路由 + 会话接口）
-│       ├── web/                  # 对话式前端的静态资源（由 server.py 按白名单读取）
-│       │   ├── index.html        # 页面结构
-│       │   ├── style.css         # 样式（对话流 + 输入区）
-│       │   └── app.js            # 交互逻辑（多轮、引用定位、状态徽章）
-│       ├── engine.py             # RAGEngine 主引擎（含增量追加）
-│       └── cli.py                # 命令行子命令
-├── tests/
-│   ├── __init__.py               # 包标记（避开 site-packages 同名 tests 包阴影）
-│   └── test_pure_rag.py          # 纯 Python 内核单元测试
-├── .cnb.yml                      # 持续集成：PR 与 main 自动跑单测 + 评测门禁
-├── data/                         # 数据目录
-│   ├── raw/                      # 原始数据
-│   ├── synthetic/                # 合成数据 + 拒答评测集（negative_queries.json）
-│   ├── user_docs/                # 自有文档（txt/md/json/csv/docx，自动纳入索引）
-│   ├── generated/                # 规模化测试语料（simulate_corpus.py 生成，可重新生成不入库）
-│   ├── processed/                # 处理后数据+索引（研究版）
-│   └── pure_index/               # 纯 Python 版索引 + 调优参数（可重新生成）
-├── docs/                         # 文档与图片
-│   └── images/                   # 科研绘图
-├── config.env                    # 环境配置
-├── requirements.txt              # 依赖
-└── README.md                     # 本文件
-```
-
----
-
-## 技术栈
-
-主线（`src/pure_rag/`，零第三方依赖）：
-
-| 模块 | 完成方式 | 说明 |
-|------|---------|------|
-| 分词 | 自实现（`text_utils.py`） | 领域词典 + 正向最大匹配 + 二元组，含无监督新词发现 |
-| 关键词检索 | 自实现（`bm25.py`） | Okapi BM25，倒排表 + 平滑 IDF |
-| 语义检索 | 自实现（`tfidf.py`） | TF-IDF 稀疏向量 + 余弦相似度 |
-| 融合重排 | 自实现（`fusion.py`） | 自适应 α 加权 / RRF / MMR |
-| 知识图谱 | 自实现（`kg.py` + `src/knowledge_graph.py`） | 仅标准库，无需图数据库 |
-| 答案生成 | 自实现（`generator.py`） | 抽取式为主，可选 LLM 走 `urllib.request` |
-| Web 界面 | 标准库 `http.server` | 对话式单页应用，原生 HTML/CSS/JS，无框架、无 CDN |
-| 环境配置 | 标准库（`env.py`） | 自写 `.env` 解析，不用 python-dotenv |
-
-遗留研究版（不在主线，需 10+ 个第三方包）：
-
-| 模块 | 技术 | 说明 |
-|------|------|------|
-| 向量模型 | text2vec-base-chinese | 768维中文文本向量 |
-| 中文分词 | jieba | 搜索模式分词 |
-| BM25 | rank-bm25 | Okapi BM25 |
-| 向量计算 | numpy | L2归一化余弦相似度 |
-| LLM API | OpenAI兼容接口 | ModelScope API |
-| Web界面 | Gradio | 交互式问答 |
-| 模型管理 | 自研ModelManager | 线程安全+自动切换（该模块本身零依赖，主线也在用） |
-| 自适应融合 | MLP+规则先验 | 查询感知权重预测 |
-
----
-
-## 贡献
-
-本仓库只使用 `main` 单分支，且本地与三个远端（GitHub / Gitee / CNB）保持同步：
-
-1. 在 `main` 上修改，本地跑完整链路（build -> ask -> eval -> serve）
-2. 提交：`git commit -m "..."`
-3. 同步推送三个仓库：`git push origin main:main`、`git push gitee main:main`、`git push cnb main:main`
-   （必须显式写 refspec，否则 `push.default=simple` 下远端名与分支名不一致会报错）
-
-外部贡献者可以先 fork 再提 Pull Request；维护者合入后同样只跑 `main`。
-
----
-
-## 许可证
-
-本项目基于 [MIT License](LICENSE) 开源。
-
----
-
-<div align="center">
-
-**WindRAG** - 让风电运维更智能
-
-</div>
+- Repository: [GitHub](https://github.com/LPK3215/WindRAG) (origin) — mirrored to [Gitee](https://gitee.com/LPK-Gitee/WindRAG) and [CNB](https://cnb.cool/lpk3215/WindRAG); all three track `main`.
+- Contributions: read [CONTRIBUTING.md](CONTRIBUTING.md) ([中文](CONTRIBUTING.zh-CN.md)); change history lives in [CHANGELOG.md](CHANGELOG.md); common questions in [FAQ.md](FAQ.md); vulnerability reporting in [SECURITY.md](SECURITY.md).
+- Authors and maintainers: see [AUTHORS](AUTHORS). Maintainer: **LPK3215** <17538703215@163.com>.
+- License: released under the [MIT License](LICENSE), © 2026 LPK3215 and WindRAG contributors.
