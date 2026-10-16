@@ -29,10 +29,13 @@ class KnowledgeGraphRetriever:
         self.kg: KnowledgeGraph = None
         self._index = TfidfIndex()
         self._node_ids: List[str] = []
+        self._component_ids: List[str] = []
+        self._fault_owners: Dict[str, str] = {}
 
         if self.path.exists():
             self.kg = KnowledgeGraph.load(str(self.path))
             self._build_index()
+            self._build_fault_owners()
 
     @property
     def available(self) -> bool:
@@ -54,7 +57,46 @@ class KnowledgeGraphRetriever:
             ids.append(node_id)
             texts.append(self.tokenizer.cut_for_index(self._node_text(node)))
         self._node_ids = ids
+        self._component_ids = [node_id for node_id in ids
+                               if self.kg.nodes[node_id]["type"] == "component"]
         self._index.build(texts)
+
+    def _build_fault_owners(self) -> None:
+        """建立「故障名 → 所属部件」映射，用于校验部件与故障的搭配是否成立"""
+        for node_id, node in self.kg.nodes.items():
+            if node["type"] != "fault_type":
+                continue
+            name = node.get("properties", {}).get("name") or node_id
+            parents = self.kg.get_reverse_neighbors(node_id, "HAS_FAULT")
+            if parents:
+                self._fault_owners[name] = parents[0]["node_id"]
+
+    # -- 组合校验 -----------------------------------------------------------
+    def validate_combination(self, query: str) -> Dict:
+        """
+        校验查询里「部件 + 故障」的搭配在图谱中是否存在
+
+        覆盖率判据只看得懂"词在不在语料里"，对「偏航系统制动器失效」这类
+        **词对组合不存在**的伪问题无能为力（实测拒答率仅 5.56%）。
+        这里用图谱的 `部件 --HAS_FAULT--> 故障` 归属关系补上这一环：
+        只有当查询同时点名了部件与故障、且所有搭配都不成立时才判为无效组合。
+        """
+        result = {"components": [], "faults": [], "invalid": [], "valid": []}
+        if not self.available or not query:
+            return result
+
+        # 只在原文上匹配，不做同义词扩展：扩展会把「偏航偏差过大」里的“偏航”
+        # 补成「偏航系统」，凭空造出一个有效搭配，反而漏掉该拦的伪问题。
+        result["components"] = [node_id for node_id in self._component_ids
+                                if node_id in query]
+        result["faults"] = [name for name in self._fault_owners if name in query]
+        for fault in result["faults"]:
+            owner = self._fault_owners[fault]
+            for component in result["components"]:
+                pair = {"component": component, "fault": fault, "owner": owner}
+                key = "valid" if component == owner else "invalid"
+                result[key].append(pair)
+        return result
 
     # -- 实体匹配 -----------------------------------------------------------
     def match_nodes(self, query: str, top_k: int = 2) -> List[Tuple[str, float]]:

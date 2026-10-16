@@ -594,9 +594,24 @@ class RAGEngine:
             return True
         return confidence["coverage"] < threshold
 
-    def _refusal_answer(self, confidence: Dict, documents: List[Dict],
-                        threshold: float) -> str:
-        """拒答话术：说明判断依据，并给出最接近的资料供人工判断"""
+    def _refusal_answer(self, confidence: Dict, documents: List[Dict], threshold: float,
+                        reason: str = "low_coverage", combination: Dict = None) -> str:
+        """拒答话术：说明判断依据，并给出最接近的资料/可行的问法"""
+        if reason == "invalid_combination" and combination and combination["invalid"]:
+            pair = combination["invalid"][0]
+            lines = [
+                f"知识库中没有收录「{pair['component']}」的「{pair['fault']}」故障"
+                f"（该故障在知识库里属于「{pair['owner']}」）。"
+            ]
+            others = [item for item in combination["invalid"]
+                      if item["component"] != pair["component"]]
+            if others:
+                lines.append("同样未收录的组合：" + "、".join(
+                    f"{item['component']}的{item['fault']}" for item in others[:3]))
+            lines.append(f"可以改问「{pair['owner']}{pair['fault']}怎么处理？」，"
+                         "或换一个与该部件相关的故障描述。")
+            return "\n".join(lines)
+
         lines = [
             f"知识库中没有检索到足以回答该问题的资料"
             f"（查询词覆盖率 {confidence['coverage']:.0%}，拒答阈值 {threshold:.0%}）。"
@@ -647,11 +662,25 @@ class RAGEngine:
         confidence = self.confidence(resolved, retrieval["documents"])
         confidence["threshold"] = round(threshold, 4)
 
-        if self.should_refuse(confidence, threshold):
-            # 覆盖率不足时直接拒答：不把弱相关文档包装成答案，也省下一次 LLM 调用
+        # 组合校验：查询点名的部件与故障搭配是否成立（覆盖率判据看不出来的那类伪问题）
+        combination = (self.kg.validate_combination(resolved)
+                       if (use_kg and self.kg and self.kg.available)
+                       else {"components": [], "faults": [], "invalid": [], "valid": []})
+
+        if combination["invalid"] and not combination["valid"]:
+            reason = "invalid_combination"
+        elif self.should_refuse(confidence, threshold):
+            reason = "low_coverage"
+        else:
+            reason = ""
+
+        confidence["reason"] = reason
+        if reason:
+            # 判为不可答时直接拒答：不把弱相关文档包装成答案，也省下一次 LLM 调用
             confidence["refused"] = True
             generation = {
-                "answer": self._refusal_answer(confidence, retrieval["documents"], threshold),
+                "answer": self._refusal_answer(confidence, retrieval["documents"],
+                                               threshold, reason, combination),
                 "mode": "refused",
                 "citations": [],
             }
@@ -671,6 +700,7 @@ class RAGEngine:
             "claims": generation.get("claims", []),
             "card": generation.get("card"),
             "confidence": confidence,
+            "combination": combination,
             "alpha": retrieval["alpha"],
             "kg_context": retrieval["kg_context"],
             "kg_entities": retrieval["kg_entities"],

@@ -901,154 +901,144 @@
       "note": "语料中该故障只属于 制动系统"
     },
     {
-      "query": "制动系统偏航偏差过大怎么处理？",
+      "query": "制动系统绝缘击穿怎么处理？",
       "layer": "near_miss",
       "expect": "refuse",
       "source": "fault_cases",
       "qtype": "故障诊断",
       "target_text": null,
       "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
+      "note": "语料中该故障只属于 发电机"
     },
     {
-      "query": "制动系统偏航电机异响怎么处理？",
+      "query": "制动系统绝缘油老化怎么处理？",
       "layer": "near_miss",
       "expect": "refuse",
       "source": "fault_cases",
       "qtype": "故障诊断",
       "target_text": null,
       "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
+      "note": "语料中该故障只属于 变压器"
     },
     {
-      "query": "发电机偏航偏差过大怎么处理？",
+      "query": "发电机绝缘油老化怎么处理？",
       "layer": "near_miss",
       "expect": "refuse",
       "source": "fault_cases",
       "qtype": "故障诊断",
       "target_text": null,
       "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
+      "note": "语料中该故障只属于 变压器"
     },
     {
-      "query": "发电机偏航电机异响怎么处理？",
+      "query": "发电机变桨电机过热怎么处理？",
       "layer": "near_miss",
       "expect": "refuse",
       "source": "fault_cases",
       "qtype": "故障诊断",
       "target_text": null,
       "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
+      "note": "语料中该故障只属于 变桨系统"
     },
     {
-      "query": "变压器偏航偏差过大怎么处理？",
+      "query": "变压器变桨轴承卡死怎么处理？",
       "layer": "near_miss",
       "expect": "refuse",
       "source": "fault_cases",
       "qtype": "故障诊断",
       "target_text": null,
       "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
+      "note": "语料中该故障只属于 变桨系统"
     },
     {
-      "query": "变压器偏航电机异响怎么处理？",
+      "query": "变压器PLC通信故障怎么处理？",
       "layer": "near_miss",
       "expect": "refuse",
       "source": "fault_cases",
       "qtype": "故障诊断",
       "target_text": null,
       "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
+      "note": "语料中该故障只属于 控制系统"
     },
     {
-      "query": "变桨系统偏航偏差过大怎么处理？",
+      "query": "变桨系统液压油泄漏怎么处理？",
       "layer": "near_miss",
       "expect": "refuse",
       "source": "fault_cases",
       "qtype": "故障诊断",
       "target_text": null,
       "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
+      "note": "语料中该故障只属于 液压系统"
     },
     {
-      "query": "变桨系统偏航电机异响怎么处理？",
+      "query": "变桨系统液压泵故障怎么处理？",
       "layer": "near_miss",
       "expect": "refuse",
       "source": "fault_cases",
       "qtype": "故障诊断",
       "target_text": null,
       "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
+      "note": "语料中该故障只属于 液压系统"
     },
     {
-      "query": "叶片偏航偏差过大怎么处理？",
+      "query": "叶片液压油泄漏怎么处理？",
       "layer": "near_miss",
       "expect": "refuse",
       "source": "fault_cases",
       "qtype": "故障诊断",
       "target_text": null,
       "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
+      "note": "语料中该故障只属于 液压系统"
     },
     {
-      "query": "叶片偏航电机异响怎么处理？",
+      "query": "叶片液压泵故障怎么处理？",
       "layer": "near_miss",
       "expect": "refuse",
       "source": "fault_cases",
       "qtype": "故障诊断",
       "target_text": null,
       "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
+      "note": "语料中该故障只属于 液压系统"
     },
     {
-      "query": "塔筒偏航偏差过大怎么处理？",
+      "query": "塔筒变频器故障怎么处理？",
       "layer": "near_miss",
       "expect": "refuse",
       "source": "fault_cases",
       "qtype": "故障诊断",
       "target_text": null,
       "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
+      "note": "语料中该故障只属于 电气系统"
     },
     {
-      "query": "塔筒偏航电机异响怎么处理？",
+      "query": "塔筒接地故障怎么处理？",
       "layer": "near_miss",
       "expect": "refuse",
       "source": "fault_cases",
       "qtype": "故障诊断",
       "target_text": null,
       "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
+      "note": "语料中该故障只属于 电气系统"
     },
     {
-      "query": "液压系统偏航偏差过大怎么处理？",
+      "query": "液压系统齿轮断齿怎么处理？",
       "layer": "near_miss",
       "expect": "refuse",
       "source": "fault_cases",
       "qtype": "故障诊断",
       "target_text": null,
       "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
+      "note": "语料中该故障只属于 齿轮箱"
     },
     {
-      "query": "液压系统偏航电机异响怎么处理？",
+      "query": "液压系统齿轮磨损怎么处理？",
       "layer": "near_miss",
       "expect": "refuse",
       "source": "fault_cases",
       "qtype": "故障诊断",
       "target_text": null,
       "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
-    },
-    {
-      "query": "齿轮箱偏航偏差过大怎么处理？",
-      "layer": "near_miss",
-      "expect": "refuse",
-      "source": "fault_cases",
-      "qtype": "故障诊断",
-      "target_text": null,
-      "target_doc": null,
-      "note": "语料中该故障只属于 偏航系统"
+      "note": "语料中该故障只属于 齿轮箱"
     },
     {
       "query": "齿轮箱偏航电机异响怎么处理？",
@@ -1059,6 +1049,16 @@
       "target_text": null,
       "target_doc": null,
       "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "齿轮箱制动器失效怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 制动系统"
     },
     {
       "query": "如何做红烧肉？",

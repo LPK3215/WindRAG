@@ -187,18 +187,25 @@ def _near_miss_layer(data_dir: str) -> List[Dict]:
         fault_names[node["id"]] = (node["properties"].get("name", node["id"]), owner)
 
     items = []
-    for component in components:
-        taken = 0
-        for fault_id, (fault_name, owner) in sorted(fault_names.items()):
-            if taken >= NEAR_MISS_PER_COMPONENT:
-                break
-            if owner == component or not fault_name:
-                continue
+    for index, component in enumerate(components):
+        candidates = [
+            (fault_name, owner)
+            for _fault_id, (fault_name, owner) in sorted(fault_names.items())
+            # 排除两类：该故障本就属于这个部件；故障名里含任一部件名
+            # （如「叶片裂纹」自带「叶片」，拼出来会带一个有效搭配，就不算近邻负例了）
+            if owner != component and fault_name
+            and not any(name in fault_name for name in components)
+        ]
+        if not candidates:
+            continue
+        # 轮转取样，避免所有部件都配上同一个故障（否则近邻负例会退化成同一模式）
+        for offset in range(min(NEAR_MISS_PER_COMPONENT, len(candidates))):
+            position = (index * NEAR_MISS_PER_COMPONENT + offset) % len(candidates)
+            fault_name, owner = candidates[position]
             items.append(_item(
                 f"{component}{fault_name}怎么处理？", "near_miss", "fault_cases",
                 note=f"语料中该故障只属于 {owner}",
             ))
-            taken += 1
 
     # 人工负例：域外与域内缺资料
     if negatives_path.exists():

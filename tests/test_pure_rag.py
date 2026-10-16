@@ -28,6 +28,7 @@ from pure_rag.fusion import (min_max, mmr_select, reciprocal_rank_fusion,
                              weighted_fusion)
 from pure_rag.generator import build_fault_card, parse_fault_cases
 from pure_rag.highlight import ansi, clip_spans, to_html, to_markdown
+from pure_rag.kg import KnowledgeGraphRetriever
 from pure_rag.loader import load_user_documents, read_text_file
 from pure_rag.query_analysis import adaptive_alpha, classify_question
 from pure_rag.server import RAGRequestHandler
@@ -573,6 +574,66 @@ class LayeredEvalTest(unittest.TestCase):
         for section in ("## 评测集构成", "## 分层指标", "## 按数据来源",
                         "## 按问题类型", "## 拒答阈值标定", "## 说明与已知边界"):
             self.assertIn(section, report["markdown"])
+
+
+class CombinationTest(unittest.TestCase):
+    """知识图谱组合校验：部件 × 故障的搭配是否成立"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp_dir = tempfile.mkdtemp(prefix="pure_rag_combo_")
+        cls.kg = KnowledgeGraphRetriever(os.path.join(ROOT, "data", "knowledge_graph.json"))
+        cls.engine = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+                               index_dir=os.path.join(cls.tmp_dir, "index"),
+                               use_llm=False)
+        cls.engine.build(verbose=False)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp_dir, ignore_errors=True)
+
+    def test_valid_combination(self):
+        result = self.kg.validate_combination("齿轮箱齿轮磨损怎么处理？")
+        self.assertTrue(result["valid"])
+        self.assertFalse(result["invalid"])
+        self.assertEqual(result["valid"][0]["owner"], "齿轮箱")
+
+    def test_invalid_combination_reports_owner(self):
+        result = self.kg.validate_combination("偏航系统制动器失效怎么处理？")
+        self.assertEqual(result["valid"], [])
+        self.assertEqual(result["invalid"][0]["component"], "偏航系统")
+        self.assertEqual(result["invalid"][0]["owner"], "制动系统")
+
+    def test_query_without_fault_is_not_judged(self):
+        result = self.kg.validate_combination("偏航系统的作用是什么？")
+        self.assertEqual(result["faults"], [])
+        self.assertFalse(result["invalid"])
+
+    def test_alias_expansion_not_used_for_matching(self):
+        # 「偏航偏差过大」里的"偏航"若被扩展成「偏航系统」，会凭空造出一个有效搭配
+        result = self.kg.validate_combination("发电机偏航偏差过大怎么处理？")
+        self.assertEqual(result["valid"], [])
+        self.assertTrue(result["invalid"])
+
+    def test_invalid_combination_refused_with_guidance(self):
+        result = self.engine.query("齿轮箱制动器失效怎么处理？")
+        self.assertTrue(result["confidence"]["refused"])
+        self.assertEqual(result["confidence"]["reason"], "invalid_combination")
+        self.assertIn("制动系统", result["answer"])
+
+    def test_valid_combination_still_answered(self):
+        result = self.engine.query("齿轮箱齿轮磨损怎么处理？")
+        self.assertFalse(result["confidence"]["refused"])
+        self.assertEqual(result["confidence"]["reason"], "")
+
+    def test_near_miss_dataset_is_genuinely_invalid(self):
+        dataset = build_dataset(os.path.join(ROOT, "data"))
+        items = [item for item in dataset["items"] if item["layer"] == "near_miss"]
+        self.assertTrue(items)
+        for item in items:
+            result = self.kg.validate_combination(item["query"])
+            self.assertTrue(result["invalid"], msg=f"{item['query']} 未被判为无效组合")
+            self.assertEqual(result["valid"], [], msg=f"{item['query']} 意外命中有效搭配")
 
 
 class AblationTest(unittest.TestCase):
