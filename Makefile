@@ -3,10 +3,11 @@
 # Run `make help` to list targets.
 
 PY ?= python
+NODE ?= node
 PORT ?= 8000
 Q ?= gearbox overheating handling
 
-.PHONY: help corpus build ask chat explain stats serve eval eval-report eval-negative robust tune ablation test facts check clean
+.PHONY: help corpus build ask chat explain stats serve eval eval-report eval-negative robust tune ablation test facts check clean verify release publish-local mirror-sync
 
 help: ## Show this help
 	@echo "WindRAG targets:"; \
@@ -54,9 +55,10 @@ ablation: ## Ablation table across modules
 test: ## Run the unit test suite
 	$(PY) -m unittest tests.test_pure_rag -v
 
-facts: ## Regenerate the AUTO:FACTS blocks in both READMEs
+facts: ## Regenerate README figures (both editions) + banner from real sources
 	$(PY) src/gen_readme_facts.py
 	$(PY) src/gen_readme_facts.py --readme README.zh-CN.md
+	$(NODE) scripts/visualization/generate_banner.py
 
 check: ## Verify README figures have not drifted from the real sources
 	$(PY) src/gen_readme_facts.py --check
@@ -64,3 +66,16 @@ check: ## Verify README figures have not drifted from the real sources
 
 clean: ## Remove regenerable index artifacts (data/pure_index, generated corpus)
 	rm -rf data/pure_index/*.json data/pure_index/*.npy data/generated/*
+
+# ---- release pipeline (scripts are Node .mjs; mainline runtime stays pure Python) ----
+verify: ## Run the release gate defined in pipeline.config.json (verify array)
+	$(NODE) scripts/verify.mjs
+
+release: ## Bump version, tag, and push remotes. Usage: make release V=1.0.1
+	$(NODE) scripts/release.mjs $(V)
+
+publish-local: ## Local text-only Release (CI fallback). Usage: make publish-local TAG=v1.0.1
+	$(NODE) scripts/publish-local.mjs --tag $(TAG)
+
+mirror-sync: ## Sync the tag + Release assets to Gitee/CNB mirrors (needs GITEE_TOKEN/CNB_TOKEN)
+	$(NODE) scripts/mirror-sync.mjs

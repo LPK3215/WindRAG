@@ -57,3 +57,14 @@ docs/archify/*.visual-check.*
 
 # 回收/备份文件
 *.bak
+
+# Release pipeline artifacts and credentials (git-release-pipeline)
+dist/
+build/
+*.tgz
+*.egg-info/
+.venv/
+node_modules/
+**/*-signing/
+*.key
+*.key.pub

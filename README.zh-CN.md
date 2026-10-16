@@ -201,13 +201,21 @@ data/
 └── generated/            # 规模化测试语料（simulate_corpus.py 生成，可重新生成）
 tests/test_pure_rag.py    # 纯 Python 内核单元测试
 scripts/
+├── verify.mjs / release.mjs / publish-local.mjs / mirror-sync.mjs   # 发布流水线（Node 工具；主线运行时仍是纯 Python）
 └── visualization/        # README 可视化资产生成脚本（仅标准库）
     └── generate_banner.py # 从真源生成 docs/assets/banner.svg
 docs/
+├── index.html            # GitHub Pages 入口 -> project_overview
+├── project_overview/     # 交互式项目全景观览页
 ├── assets/banner.svg     # 生成的横幅图（图内文字全英文）
 └── archify/              # 交互式 架构 / 主流程 / 时序 / 数据流 HTML
 .cnb.yml                  # 持续集成：单测 + 评测门禁 + README 实测数据一致性
-Makefile                  # 封装 python src/rag_cli.py 的便捷目标
+.github/workflows/        # ci.yml（PR 门禁）+ publish.yml（打 tag 出纯文本 Release）
+.github/ISSUE_TEMPLATE/   # issue 与 PR 模板
+hooks/                    # 提交前快门禁；启用一次：git config core.hooksPath hooks
+pipeline.config.json      # 发布流水线配置（版本文件、门禁、远程、镜像同步）
+Makefile                  # 目标：python rag_cli.py + verify/release/publish-local/mirror-sync
+.gitattributes            # 行尾规范化 + linguist 归类
 README.md / README.zh-CN.md          # 英文主版 + 中文配套版
 CONTRIBUTING.md / CONTRIBUTING.zh-CN.md
 CHANGELOG.md / FAQ.md / SECURITY.md / AUTHORS / LICENSE

@@ -44,7 +44,7 @@ Because `eval`, `ablation`, and `tune` force extractive generation by default. M
 
 ## How is the project versioned?
 
-The kernel version is the single source of truth in `pure_rag.__version__` (currently `1.0.0`); the README figures block and `stats` read it from there. Release history is tracked in `CHANGELOG.md` following Keep a Changelog.
+The kernel version is the single source of truth in `pure_rag.__version__`; the README `AUTO:FACTS` block and `stats` read it from there, and it is never hand-written. Release history is tracked in `CHANGELOG.md` following Keep a Changelog.
 
 ## How do I run the tests?
 

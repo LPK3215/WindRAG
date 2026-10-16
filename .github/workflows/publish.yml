@@ -1,0 +1,34 @@
+# Text-only release for WindRAG (no packaged binary/wheel: pure-standard-library, run in place).
+# Trigger: pushing a version tag (created by scripts/release.mjs).
+# If GitHub Actions is unavailable, the equivalent local path is:
+#   node scripts/publish-local.mjs --tag v<version>
+name: Publish Release
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create GitHub Release for the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; updating title."
+            gh release edit "$TAG" --title "WindRAG $TAG"
+          else
+            gh release create "$TAG" \
+              --title "WindRAG $TAG" \
+              --notes "WindRAG $TAG - a lightweight, pure-standard-library RAG for wind-turbine O&M knowledge bases. See CHANGELOG.md for the full change list." \
+              --latest
+          fi

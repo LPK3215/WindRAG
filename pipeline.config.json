@@ -1,0 +1,61 @@
+{
+  "_readBy": "scripts/verify.mjs reads the verify/precommit arrays; scripts/release.mjs and scripts/publish-local.mjs read the rest. Underscore keys are notes and are ignored.",
+  "_profile": "Form not covered by the template: WindRAG has no package.json / pyproject.toml / Cargo.toml / tauri. It is a run-in-place pure-standard-library CLI + static docs site. Closest reference is python-pkg, but it builds no wheel, so releases are text-only (GitHub Release with notes, no packaged artifact).",
+
+  "productName": "WindRAG",
+  "profile": "python-pkg (reference only; not a packaged dist)",
+  "tagPrefix": "v",
+  "remote": "origin",
+
+  "pushRemotes": {
+    "primary": "origin",
+    "list": ["origin", "gitee", "cnb"]
+  },
+
+  "versionFiles": [
+    {
+      "path": "src/pure_rag/__init__.py",
+      "type": "regex",
+      "pattern": "^__version__\\s*=\\s*\"[^\"]+\"",
+      "replace": "__version__ = \"$VERSION\""
+    }
+  ],
+
+  "_releaseNote": "The README measured-figures block and docs/assets/banner.svg are GENERATED from __version__ (single-source rule: never hand-written). release.mjs bumps __version__ only; after a release run `make facts` (gen_readme_facts for both READMEs + generate_banner) and commit the follow-up, otherwise the ci.yml facts --check will flag the one-commit drift. publish.yml is text-only and is not affected by that drift.",
+
+  "verify": [
+    { "name": "unit tests", "cmd": "python -m unittest tests.test_pure_rag" },
+    { "name": "build index", "cmd": "python src/rag_cli.py build" },
+    { "name": "readme facts en", "cmd": "python src/gen_readme_facts.py --check" },
+    { "name": "readme facts zh", "cmd": "python src/gen_readme_facts.py --check --readme README.zh-CN.md" }
+  ],
+
+  "precommit": [
+    { "name": "readme facts en", "cmd": "python src/gen_readme_facts.py --check" },
+    { "name": "readme facts zh", "cmd": "python src/gen_readme_facts.py --check --readme README.zh-CN.md" }
+  ],
+
+  "_localPublish": "Text-only release: empty steps and artifacts means publish-local.mjs only creates/updates the GitHub Release for the tag with notes, attaching no files. The version lives in a regex file (__init__.py), not json/toml, so resolveTag cannot derive it - pass --tag explicitly: `node scripts/publish-local.mjs --tag v1.0.0`.",
+  "localPublish": {
+    "steps": [],
+    "artifacts": []
+  },
+
+  "_mirrorSync": "Optional. GitHub is the primary release host; gitee/cnb are download mirrors. Run `node scripts/mirror-sync.mjs` after a release. Tokens come from environment variables only (GITEE_TOKEN / CNB_TOKEN); never hard-code them here. Both remotes are already bound (git remote -v).",
+  "mirrorSync": {
+    "localAssets": false,
+    "gitee": {
+      "remote": "gitee",
+      "owner": "LPK-Gitee",
+      "repo": "WindRAG",
+      "tokenEnv": "GITEE_TOKEN",
+      "targetBranch": "master"
+    },
+    "cnb": {
+      "remote": "cnb",
+      "repo": "lpk3215/WindRAG",
+      "tokenEnv": "CNB_TOKEN",
+      "targetBranch": "main"
+    }
+  }
+}

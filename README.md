@@ -201,13 +201,21 @@ data/
 └── generated/            # scaled test corpus (from simulate_corpus.py, regenerable)
 tests/test_pure_rag.py    # pure-Python kernel unit tests
 scripts/
+├── verify.mjs / release.mjs / publish-local.mjs / mirror-sync.mjs   # release pipeline (Node tooling; mainline runtime stays pure Python)
 └── visualization/        # README asset generators (stdlib only)
     └── generate_banner.py # renders docs/assets/banner.svg from real sources
 docs/
+├── index.html            # GitHub Pages entry -> project_overview
+├── project_overview/     # interactive project dashboard
 ├── assets/banner.svg     # generated hero banner (English text)
 └── archify/              # interactive architecture / workflow / sequence / dataflow HTML
 .cnb.yml                  # CI: unit tests + eval gate + README figures consistency
-Makefile                  # convenience targets wrapping python src/rag_cli.py
+.github/workflows/        # ci.yml (PR gate) + publish.yml (text-only release on tag)
+.github/ISSUE_TEMPLATE/   # issue + PR templates
+hooks/                    # pre-commit fast gate; enable once: git config core.hooksPath hooks
+pipeline.config.json      # release pipeline config (version files, gate, remotes, mirror sync)
+Makefile                  # targets: python rag_cli.py + verify/release/publish-local/mirror-sync
+.gitattributes            # line-ending normalization + linguist hints
 README.md / README.zh-CN.md          # English main + Chinese companion
 CONTRIBUTING.md / CONTRIBUTING.zh-CN.md
 CHANGELOG.md / FAQ.md / SECURITY.md / AUTHORS / LICENSE
