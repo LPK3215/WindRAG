@@ -35,8 +35,10 @@ from pure_rag.query_analysis import adaptive_alpha, expand_queries
 from pure_rag.text_utils import Tokenizer, discover_terms, find_spans
 from pure_rag.tfidf import TfidfIndex
 
-# 多轮对话中指代消解的触发词
-PRONOUNS = ("它", "他", "这个", "那个", "该", "此", "上述", "刚才", "还有", "那么")
+# 多轮对话中指代消解的触发词：代词与省略式追问开头（“那多久换一次？”不带代词，
+# 但同样靠上一轮主题才能理解）
+PRONOUNS = ("它", "他", "这个", "那个", "该", "此", "上述", "刚才", "还有", "那么",
+            "那", "则", "另外", "此外", "接着", "继续")
 
 # 查询扩展召回结果的融合权重（越小越保守）
 EXPANSION_WEIGHT = 0.3
@@ -609,7 +611,7 @@ class RAGEngine:
 
     def _refusal_answer(self, confidence: Dict, documents: List[Dict], threshold: float,
                         reason: str = "low_coverage", combination: Dict = None) -> str:
-        """拒答话术：说明判断依据，并给出最接近的资料/可行的问法"""
+        """拒答话术：说明到底是哪条判据拦下来的，并给出最接近的资料/可行的问法"""
         if reason == "invalid_combination" and combination and combination["invalid"]:
             pair = combination["invalid"][0]
             lines = [
@@ -625,12 +627,25 @@ class RAGEngine:
                          "或换一个与该部件相关的故障描述。")
             return "\n".join(lines)
 
-        lines = [
-            f"知识库中没有检索到足以回答该问题的资料"
-            f"（查询词覆盖率 {confidence['coverage']:.0%}，拒答阈值 {threshold:.0%}）。"
-        ]
-        if confidence.get("missing"):
-            lines.append("未覆盖到的关键词：" + "、".join(confidence["missing"][:6]))
+        if reason == "no_content_term":
+            # 覆盖率可以靠单字碰巧凑到足够高，但没有任何实词命中，拼资料只会答非所问；
+            # 不说清这一点，用户会看到“覆盖率 46% 但阈值 35%”以为文案自相矛盾
+            lines = [
+                f"问题的关键词没有落在知识库的用词范围内：没有任何实词命中。"
+                f"（查询词覆盖率 {confidence['coverage']:.0%}，只靠单字片段凑到了阈值 {threshold:.0%}）"
+            ]
+        else:
+            lines = [
+                f"知识库中没有检索到足以回答该问题的资料"
+                f"（查询词覆盖率 {confidence['coverage']:.0%}，拒答阈值 {threshold:.0%}）。"
+            ]
+        # 单字片段（“几”“科”“幻”）对读者没有信息量，只列多字未命中词
+        missing_terms = [term for term in confidence.get("missing", []) if len(term) >= 2]
+        if missing_terms:
+            lines.append("未覆盖到的关键词：" + "、".join(missing_terms[:6]))
+        elif confidence.get("missing") and reason == "no_content_term":
+            # 只在“没有任何实词命中”时这么说；覆盖率不足但已命中实词的场景下这样说会自相矛盾
+            lines.append("未命中的都是单字片段，问题里没有知识库里出现过的实词。")
         if documents:
             metadata = documents[0]["metadata"]
             title = metadata.get("title") or metadata.get("source") or "未知来源"
@@ -670,6 +685,7 @@ class RAGEngine:
                                "refused": False, "reason": "empty_question"},
                 "combination": {"components": [], "faults": [], "invalid": [], "valid": []},
                 "alpha": 0.0,
+                "method": method,
                 "candidates": 0,
                 "variants": [],
                 "kg_context": "",
@@ -693,6 +709,14 @@ class RAGEngine:
         begin = time.time()
         retrieval = self.retrieve(resolved, top_k, method, alpha, use_kg, use_rerank)
         confidence = self.confidence(resolved, retrieval["documents"])
+        if resolved != question:
+            # 追问把上一轮拼进检索词后，覆盖率分母被稀释、结果也会被上一轮主题带偏
+            # （实测“那润滑油多久换一次？”合并后 0.3335 / 单独问 0.7598）。
+            # 所以两种查询都跑一次，用覆盖率更高的那次作为本轮答案依据。
+            alt = self.retrieve(question, top_k, method, alpha, use_kg, use_rerank)
+            alt_confidence = self.confidence(question, alt["documents"])
+            if alt_confidence["coverage"] > confidence["coverage"]:
+                retrieval, confidence, resolved = alt, alt_confidence, question
         confidence["threshold"] = round(threshold, 4)
 
         # 组合校验：查询点名的部件与故障搭配是否成立（覆盖率判据看不出来的那类伪问题）
@@ -703,7 +727,9 @@ class RAGEngine:
         if combination["invalid"] and not combination["valid"]:
             reason = "invalid_combination"
         elif self.should_refuse(confidence, threshold):
-            reason = "low_coverage"
+            # 两条子判据分开着写，否则“覆盖率达标但仍拒答”会被误报成“低于阈值”
+            reason = ("low_coverage" if confidence.get("matched_content")
+                      else "no_content_term")
         else:
             reason = ""
 
@@ -739,6 +765,7 @@ class RAGEngine:
             "confidence": confidence,
             "combination": combination,
             "alpha": retrieval["alpha"],
+            "method": retrieval["method"],
             # 候选规模与变体数：Web 界面与 JSON 调用方需要据此判断检索面有多宽
             "candidates": retrieval["candidates"],
             "variants": retrieval["variants"],
@@ -793,6 +820,9 @@ class RAGEngine:
             # 模型池连续失败后会进入冷却期，此时配了也显示 false
             "llm_configured": bool(self.generator.llm_client),
             "llm_enabled": bool(self.generator.llm_client and self.generator.llm_client.available),
+            # 最近一次调用失败的原因，界面可以在“冷却中”徽章里带上它，避免只看到一个旧状态
+            "llm_last_error": (self.generator.llm_client.last_error
+                               if self.generator.llm_client else None),
             "kg": kg_stats,
             "tuning": self.tuning or "默认参数（可运行 tune 子命令搜索）",
         }

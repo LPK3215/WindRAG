@@ -145,7 +145,7 @@ $$S_{hybrid}(q, d) = \alpha \cdot \hat{S}_{vec}(q, d) + (1-\alpha) \cdot \hat{S}
 | 对话记录 | 无 | `chat` 的 `/save` 或 `--log` 导出带来源的 Markdown 记录 |
 | 拒答 | 无 | 双判据：覆盖率不足 + 图谱校验部件×故障组合不存在，并指出该故障实际属于哪个部件 |
 | 持续集成 | 无 | `.cnb.yml`：PR 与 main 自动跑单测 + 评测，Recall 低于 0.9 直接失败 |
-| Web 界面 | Gradio | `http.server` 单页应用 |
+| Web 界面 | Gradio | `http.server` 对话式单页应用（多轮会话 + 引用定位） |
 | 第三方依赖 | 10+ 个包 | **0 个** |
 
 ### 当前实测数据
@@ -201,6 +201,32 @@ python src/rag_cli.py serve --port 8000            # 零依赖 Web 界面
 
 Web 界面上这些要点可直接点击，跳转并高亮对应的来源文档；问故障类问题时还会额外渲染
 「症状 / 原因 / 诊断 / 解决方案 / 预防措施」卡片。
+
+### Web 界面（对话式）
+
+`python src/rag_cli.py serve --port 8000` 后打开 `http://127.0.0.1:8000`，是个普通聊天机器人的样子：
+上方会话流、下方输入框，Enter 发送、Shift+Enter 换行，可以不断追问（“那多久换一次？”、“它呢？”）。
+
+| 区域 | 内容 |
+|---|---|
+| 顶栏 | 模型状态（已启用 / 不可用（带失败原因）/ 未启用）与语料规模，每轮问答后刷新 |
+| 答案气泡 | 自然语言答案（转义后渲染粗体）、meta 行（生成方式/alpha/检索方法/耗时/候选/图谱命中）、拒答与降级提示条 |
+| 引用 | 答案里的 `[1]` `[2, 3]` `[2-5]` 都可点击，多编号引用会同时描边全部对应来源并滚到第一条 |
+| 折叠区 | 故障卡片（表格）、要点定位（点击跳原文并展示带上下文的摘录）、引用来源（含知识图谱条目） |
+| 参数 | 检索方法 / top-k / 固定 alpha（留空自适应）/ 新建会话 / 轮次计数 |
+| 会话 | 服务端按 `session_id` 存最近 8 轮做指代消解，浏览器本地存最近 10 轮，刷新不丢记录 |
+
+接口路由（无框架、无 CDN，前端三个文件就在 `src/pure_rag/web/`）：
+
+```text
+GET  /                     对话页
+GET  /static/style.css     样式    GET /static/app.js  逻辑（只允许白名单内文件）
+POST /api/query            问答，入参 {question, top_k, method, alpha, session_id}
+POST /api/session/reset    清空该会话的多轮上下文
+GET  /api/stats            索引与模型状态
+```
+
+检索层仍是无状态的：不带 `session_id` 就是单轮问答，多轮只影响指代补全与上下文。
 
 作为库调用：
 
@@ -593,7 +619,11 @@ WindRAG/
 │       ├── ablation.py           # 消融实验（各模块贡献对比表）
 │       ├── env.py                # 极简 .env 加载器
 │       ├── stdio.py              # 标准流编码加固（Windows 代码页下不中断）
-│       ├── server.py             # 零依赖 Web 界面
+│       ├── server.py             # 零依赖 Web 服务（静态路由 + 会话接口）
+│       ├── web/                  # 对话式前端的静态资源（由 server.py 按白名单读取）
+│       │   ├── index.html        # 页面结构
+│       │   ├── style.css         # 样式（对话流 + 输入区）
+│       │   └── app.js            # 交互逻辑（多轮、引用定位、状态徽章）
 │       ├── engine.py             # RAGEngine 主引擎（含增量追加）
 │       └── cli.py                # 命令行子命令
 ├── tests/
@@ -628,7 +658,7 @@ WindRAG/
 | 融合重排 | 自实现（`fusion.py`） | 自适应 α 加权 / RRF / MMR |
 | 知识图谱 | 自实现（`kg.py` + `src/knowledge_graph.py`） | 仅标准库，无需图数据库 |
 | 答案生成 | 自实现（`generator.py`） | 抽取式为主，可选 LLM 走 `urllib.request` |
-| Web 界面 | 标准库 `http.server` | 单页应用，无前端框架 |
+| Web 界面 | 标准库 `http.server` | 对话式单页应用，原生 HTML/CSS/JS，无框架、无 CDN |
 | 环境配置 | 标准库（`env.py`） | 自写 `.env` 解析，不用 python-dotenv |
 
 遗留研究版（不在主线，需 10+ 个第三方包）：

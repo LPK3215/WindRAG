@@ -9,6 +9,7 @@
 """
 
 import json
+import re
 import urllib.error
 import urllib.request
 from typing import Callable, Dict, List, Optional
@@ -93,6 +94,12 @@ MAX_ERROR_BODY_CHARS = 300
 # 思维链模型（如 glm-z1-flash）会把推理过程直接写在正文里返回，
 # 送给用户前得切掉，否则答案开头就是一段 <think> 推演
 THINK_CLOSE_TAG = "</think>"
+
+# 模型有时在末尾把资料编号单独秃成一行（"[1] [2] [3]"、或带“资料编号：”前缀），
+# 对读者没有信息量，去掉
+CITATION_TAIL_RE = re.compile(
+    r"(?:\n\s*(?:资料编号|引用编号|参考文献|references)?[：:]?\s*(?:\[\d+\][\s,，、]*)+\s*)+$",
+    re.IGNORECASE)
 
 
 class LLMClient:
@@ -191,6 +198,7 @@ class LLMClient:
             content = (message.get("reasoning_content") or "").strip()
         if THINK_CLOSE_TAG in content:
             content = content.rsplit(THINK_CLOSE_TAG, 1)[1].strip()
+        content = CITATION_TAIL_RE.sub("", content).strip()
         if not content:
             raise RuntimeError(f"返回内容为空（finish_reason="
                                f"{data['choices'][0].get('finish_reason')}）")
@@ -239,9 +247,10 @@ class AnswerGenerator:
                 llm_error = self.llm_client.last_error
             else:
                 # 模型池全部处于冷却期时连试都不试；不告知的话用户只看得到 extractive，
-                # 不知道是大模型挂了还是本来就没配
-                llm_error = (self.llm_client.last_error
-                             or "模型池均不可用（冷却中），本轮未调用 LLM")
+                # 不知道是大模型挂了还是本来就没配；说清“本轮未调用”，否则与几毫秒的耗时并列会矛盾
+                last = self.llm_client.last_error
+                llm_error = ("模型池不可用（冷却中），本轮未调用大模型"
+                             + (f"；最近一次失败：{last}" if last else ""))
 
         result = self._extractive(question, documents, kg_context, idf_lookup, card)
         if llm_error:

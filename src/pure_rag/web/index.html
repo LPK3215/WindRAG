@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WindRAG · 风电运维问答</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">W</span>
+      <div>
+        <h1>WindRAG</h1>
+        <p class="tagline">风电运维知识问答 · 纯 Python 检索内核</p>
+      </div>
+    </div>
+    <div class="status" id="status" aria-live="polite">
+      <span class="chip" id="chip-llm">模型 加载中</span>
+      <span class="chip" id="chip-corpus">语料 加载中</span>
+    </div>
+  </header>
+
+  <main class="transcript" id="transcript" aria-live="polite" tabindex="-1">
+    <section class="welcome" id="welcome">
+      <h2>问一台机组的故障、规程或指标</h2>
+      <p class="welcome-hint">
+        检索与生成分开两层：没配大模型时直接给出带来源的知识要点，配了大模型则在此基础上组织成自然语言答案。
+      </p>
+      <div class="examples" id="examples" role="list"></div>
+      <p class="welcome-note">
+        支持多轮追问：可以先问某个部件的故障，再用“它”“这个”指代上一轮的部件继续问。
+      </p>
+    </section>
+  </main>
+
+  <form class="composer" id="composer" autocomplete="off">
+    <div class="composer-box">
+      <textarea id="input" rows="1" placeholder="例如：齿轮箱温度过高应该怎么处理？" aria-label="问题"></textarea>
+      <button type="submit" id="send" class="send" aria-label="发送问题">发送</button>
+    </div>
+    <div class="composer-meta">
+      <label class="field">
+        <span>检索</span>
+        <select id="method" aria-label="检索方法">
+          <option value="hybrid">hybrid 混合</option>
+          <option value="vector">vector 向量</option>
+          <option value="bm25">bm25 关键词</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>top-k</span>
+        <input id="topk" type="number" value="3" min="1" max="10" aria-label="检索文档数">
+      </label>
+      <label class="field">
+        <span>alpha</span>
+        <input id="alpha" type="number" step="0.05" min="0" max="1" placeholder="自适应" aria-label="融合权重，留空为自适应">
+      </label>
+      <button type="button" id="new-chat" class="ghost">新建会话</button>
+      <span class="turns" id="turns">共 0 轮</span>
+      <span class="hint">Enter 发送 / Shift+Enter 换行</span>
+    </div>
+  </form>
+
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
