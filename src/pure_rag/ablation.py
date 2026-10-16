@@ -23,6 +23,7 @@ import time
 from pathlib import Path
 from typing import Dict, List
 
+from pure_rag.datasets import ANSWER_LAYERS
 from pure_rag.engine import RAGEngine
 from pure_rag.evaluator import Evaluator
 
@@ -106,8 +107,11 @@ class AblationRunner:
         self.evaluator = Evaluator(data_dir)
 
         self.pairs = self.evaluator.load_qa_pairs(num_questions)
-        self.rewrites = self.evaluator.build_rewrites(self.pairs)
         self.negatives = self.evaluator.load_negatives()
+        # 分层评测集（114 条，由语料自动推导）比原来的 15 条 QA 更能区分配置差异
+        from pure_rag.datasets import load_dataset
+
+        self.dataset = load_dataset(data_dir)
 
     # -- 单组配置 -----------------------------------------------------------
     def _evaluate(self, config: Dict, work_dir: Path) -> Dict:
@@ -129,15 +133,10 @@ class AblationRunner:
         engine.alpha_override = config.get("alpha")
 
         method = config.get("method", "hybrid")
-        # 检索指标复用 evaluator.measure，保证与 eval 子命令口径一致
-        verbatim = self.evaluator.measure(
-            engine, [(pair["question"], pair["question"]) for pair in self.pairs],
-            self.top_k, method=method,
-        )
-        rewrites = self.evaluator.measure(
-            engine, [(item["question"], item["target"]) for item in self.rewrites],
-            self.top_k, method=method,
-        )
+        # 检索指标走分层评测集，与 eval --report 口径完全一致
+        layered = self.evaluator.evaluate_layers(engine, self.dataset, self.top_k, method=method)
+        overall = self._aggregate(layered["layers"], ANSWER_LAYERS)
+        layers = layered["layers"]
 
         # 答案质量与耗时走完整问答路径（含生成与拒答判定）
         coverage, latencies = 0.0, []
@@ -146,8 +145,6 @@ class AblationRunner:
             result = engine.query(pair["question"], top_k=self.top_k, method=method)
             latencies.append(time.time() - start)
             coverage += self.evaluator._keyword_coverage(pair.get("answer", ""), result["answer"])
-
-        refusal = self.evaluator.evaluate_negatives(engine)
         total = len(self.pairs) or 1
 
         return {
@@ -163,14 +160,27 @@ class AblationRunner:
                 "alpha": config.get("alpha"),
             },
             "metrics": {
-                "recall_at_k": verbatim["recall"],
-                "mrr": verbatim["mrr"],
-                "ndcg_at_k": verbatim["ndcg"],
-                "rewrite_recall": rewrites["recall"],
+                "recall_at_k": overall["recall"],
+                "mrr": overall["mrr"],
+                "ndcg_at_k": overall["ndcg"],
+                "rewrite_recall": layers.get("qa_rewrite", {}).get("recall", 0.0),
+                "case_recall": layers.get("fault_case", {}).get("recall", 0.0),
+                "near_miss_refusal": layers.get("near_miss", {}).get("refusal_rate", 0.0),
+                "ood_refusal": layers.get("negative_ood", {}).get("refusal_rate", 0.0),
                 "keyword_coverage": coverage / total,
-                "refusal_rate": refusal["refusal_rate"] if refusal["count"] else 0.0,
                 "avg_latency_ms": sum(latencies) / total * 1000,
             },
+        }
+
+    @staticmethod
+    def _aggregate(layer_buckets: Dict, layer_names) -> Dict:
+        """把若干回答层的指标按条目数加权聚合（用累计值算，避免二次平均）"""
+        buckets = [layer_buckets[name] for name in layer_names if name in layer_buckets]
+        answers = sum(bucket["answer_count"] for bucket in buckets) or 1
+        return {
+            "recall": sum(bucket["hits"] for bucket in buckets) / answers,
+            "mrr": sum(bucket["mrr_sum"] for bucket in buckets) / answers,
+            "ndcg": sum(bucket["ndcg_sum"] for bucket in buckets) / answers,
         }
 
     # -- 全量 ---------------------------------------------------------------
@@ -190,8 +200,9 @@ class AblationRunner:
         payload = {
             "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             "elapsed": round(time.time() - started, 2),
-            "data": {"questions": len(self.pairs), "rewrites": len(self.rewrites),
-                     "negatives": len(self.negatives), "top_k": self.top_k},
+            "data": {"dataset_total": len(self.dataset.get("items", [])),
+                     "dataset_counts": self.dataset.get("counts", {}),
+                     "top_k": self.top_k},
             "results": results,
             "markdown": self.to_markdown(results),
         }
@@ -228,17 +239,18 @@ class AblationRunner:
 
     # -- 输出 ---------------------------------------------------------------
     def to_markdown(self, results: List[Dict]) -> str:
-        header = ("| 配置 | 说明 | Recall@k | Recall@k(改写) | MRR | nDCG@k | "
-                  "术语覆盖率 | 域外拒答率 | 耗时 |")
-        divider = "|---|---|---|---|---|---|---|---|---|"
+        header = ("| 配置 | 说明 | Recall@k | 改写召回 | 案例召回 | MRR | "
+                  "术语覆盖率 | 域外拒答 | 近邻拒答 | 耗时 |")
+        divider = "|---|---|---|---|---|---|---|---|---|---|"
         lines = [header, divider]
         for item in results:
             metrics = item["metrics"]
             lines.append(
                 f"| {item['name']} | {item['note']} "
                 f"| {metrics['recall_at_k']:.2%} | {metrics['rewrite_recall']:.2%} "
-                f"| {metrics['mrr']:.4f} | {metrics['ndcg_at_k']:.4f} "
-                f"| {metrics['keyword_coverage']:.2%} | {metrics['refusal_rate']:.2%} "
+                f"| {metrics['case_recall']:.2%} | {metrics['mrr']:.4f} "
+                f"| {metrics['keyword_coverage']:.2%} | {metrics['ood_refusal']:.2%} "
+                f"| {metrics['near_miss_refusal']:.2%} "
                 f"| {metrics['avg_latency_ms']:.2f} ms |"
             )
         return "\n".join(lines)

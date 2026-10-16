@@ -1,0 +1,1224 @@
+{
+  "description": "由语料自动推导的分层评测集，可用 eval --report --rebuild 重新生成",
+  "fingerprint": "4c28ce2fa10ea82f",
+  "layers": {
+    "qa_verbatim": "QA 原句",
+    "qa_rewrite": "同义改写",
+    "fault_case": "案例查询",
+    "doc_title": "文档查询",
+    "near_miss": "近邻负例",
+    "negative_ood": "域外问题",
+    "negative_missing": "域内缺资料"
+  },
+  "counts": {
+    "qa_verbatim": 15,
+    "qa_rewrite": 15,
+    "fault_case": 30,
+    "doc_title": 20,
+    "near_miss": 18,
+    "negative_ood": 10,
+    "negative_missing": 6
+  },
+  "items": [
+    {
+      "query": "风电机的齿轮箱温度过高应该怎么处理？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "故障诊断",
+      "target_text": "风电机的齿轮箱温度过高应该怎么处理？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "风电机的变速箱温度过高应该怎么处理？",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "故障诊断",
+      "target_text": "风电机的齿轮箱温度过高应该怎么处理？",
+      "target_doc": null,
+      "note": "原句：风电机的齿轮箱温度过高应该怎么处理？"
+    },
+    {
+      "query": "如何判断风电机叶片是否需要更换？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "故障诊断",
+      "target_text": "如何判断风电机叶片是否需要更换？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "如何判断风电机桨叶是否需要更换？",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "故障诊断",
+      "target_text": "如何判断风电机叶片是否需要更换？",
+      "target_doc": null,
+      "note": "原句：如何判断风电机叶片是否需要更换？"
+    },
+    {
+      "query": "风电机组的正常维护周期是多久？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "维护操作",
+      "target_text": "风电机组的正常维护周期是多久？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "风力发电机的正常维护周期是多久？",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "维护操作",
+      "target_text": "风电机组的正常维护周期是多久？",
+      "target_doc": null,
+      "note": "原句：风电机组的正常维护周期是多久？"
+    },
+    {
+      "query": "风电机组的偏航系统有什么作用？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "系统原理",
+      "target_text": "风电机组的偏航系统有什么作用？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "风电机组的偏航有什么作用？",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "系统原理",
+      "target_text": "风电机组的偏航系统有什么作用？",
+      "target_doc": null,
+      "note": "原句：风电机组的偏航系统有什么作用？"
+    },
+    {
+      "query": "如何提高风电机的发电效率？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "性能优化",
+      "target_text": "如何提高风电机的发电效率？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "提高风电机的发电效率",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "性能优化",
+      "target_text": "如何提高风电机的发电效率？",
+      "target_doc": null,
+      "note": "原句：如何提高风电机的发电效率？"
+    },
+    {
+      "query": "风电机组在极端天气下应该如何运行？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "其他",
+      "target_text": "风电机组在极端天气下应该如何运行？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "风力发电机在极端天气下应该如何运行？",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "其他",
+      "target_text": "风电机组在极端天气下应该如何运行？",
+      "target_doc": null,
+      "note": "原句：风电机组在极端天气下应该如何运行？"
+    },
+    {
+      "query": "风电机的变桨系统是如何工作的？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "系统原理",
+      "target_text": "风电机的变桨系统是如何工作的？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "风电机的变桨是如何工作的？",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "系统原理",
+      "target_text": "风电机的变桨系统是如何工作的？",
+      "target_doc": null,
+      "note": "原句：风电机的变桨系统是如何工作的？"
+    },
+    {
+      "query": "如何诊断风电机的发电机故障？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "故障诊断",
+      "target_text": "如何诊断风电机的发电机故障？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "如何诊断风电机的发电机组故障？",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "故障诊断",
+      "target_text": "如何诊断风电机的发电机故障？",
+      "target_doc": null,
+      "note": "原句：如何诊断风电机的发电机故障？"
+    },
+    {
+      "query": "风电场的SCADA系统包含哪些数据？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "其他",
+      "target_text": "风电场的SCADA系统包含哪些数据？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "风电场的SCADA系统包含数据",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "其他",
+      "target_text": "风电场的SCADA系统包含哪些数据？",
+      "target_doc": null,
+      "note": "原句：风电场的SCADA系统包含哪些数据？"
+    },
+    {
+      "query": "风电机组的功率曲线是什么？如何使用？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "性能优化",
+      "target_text": "风电机组的功率曲线是什么？如何使用？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "风力发电机的功率曲线是什么？如何使用？",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "性能优化",
+      "target_text": "风电机组的功率曲线是什么？如何使用？",
+      "target_doc": null,
+      "note": "原句：风电机组的功率曲线是什么？如何使用？"
+    },
+    {
+      "query": "如何处理风电机的液压系统故障？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "故障诊断",
+      "target_text": "如何处理风电机的液压系统故障？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "如何处理风电机的液压故障？",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "故障诊断",
+      "target_text": "如何处理风电机的液压系统故障？",
+      "target_doc": null,
+      "note": "原句：如何处理风电机的液压系统故障？"
+    },
+    {
+      "query": "风电机组的防雷系统包括哪些部分？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "其他",
+      "target_text": "风电机组的防雷系统包括哪些部分？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "风力发电机的防雷系统包括哪些部分？",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "其他",
+      "target_text": "风电机组的防雷系统包括哪些部分？",
+      "target_doc": null,
+      "note": "原句：风电机组的防雷系统包括哪些部分？"
+    },
+    {
+      "query": "风电机的叶片为什么会结冰？如何处理？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "系统原理",
+      "target_text": "风电机的叶片为什么会结冰？如何处理？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "风电机的桨叶为什么会结冰？如何处理？",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "系统原理",
+      "target_text": "风电机的叶片为什么会结冰？如何处理？",
+      "target_doc": null,
+      "note": "原句：风电机的叶片为什么会结冰？如何处理？"
+    },
+    {
+      "query": "如何评估风电机的运行状态？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "其他",
+      "target_text": "如何评估风电机的运行状态？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "评估风电机的运行状态",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "其他",
+      "target_text": "如何评估风电机的运行状态？",
+      "target_doc": null,
+      "note": "原句：如何评估风电机的运行状态？"
+    },
+    {
+      "query": "风电机组的制动系统有几种类型？",
+      "layer": "qa_verbatim",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "其他",
+      "target_text": "风电机组的制动系统有几种类型？",
+      "target_doc": null,
+      "note": ""
+    },
+    {
+      "query": "风电机组的刹车有几种类型？",
+      "layer": "qa_rewrite",
+      "expect": "answer",
+      "source": "qa_pairs",
+      "qtype": "其他",
+      "target_text": "风电机组的制动系统有几种类型？",
+      "target_doc": null,
+      "note": "原句：风电机组的制动系统有几种类型？"
+    },
+    {
+      "query": "齿轮箱齿轮磨损怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC001",
+      "target_doc": null,
+      "note": "症状：齿轮箱温度异常升高，振动增大，噪音异常"
+    },
+    {
+      "query": "发电机过热怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC002",
+      "target_doc": null,
+      "note": "症状：发电机温度超过80℃报警，输出功率下降，绝缘材料老化"
+    },
+    {
+      "query": "变桨系统变桨轴承卡死怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC003",
+      "target_doc": null,
+      "note": "症状：叶片无法正常变桨，变桨角度异常，功率控制失效"
+    },
+    {
+      "query": "偏航系统偏航偏差过大怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC004",
+      "target_doc": null,
+      "note": "症状：机舱与风向偏差超过允许范围，发电效率下降"
+    },
+    {
+      "query": "叶片裂纹怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC005",
+      "target_doc": null,
+      "note": "症状：叶片表面出现裂纹，气动性能下降，噪音增大"
+    },
+    {
+      "query": "液压系统液压油泄漏怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC006",
+      "target_doc": null,
+      "note": "症状：液压油压力下降，变桨和制动系统响应迟缓"
+    },
+    {
+      "query": "控制系统PLC通信故障怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC007",
+      "target_doc": null,
+      "note": "症状：控制信号传输异常，部分功能失效"
+    },
+    {
+      "query": "变压器过热怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC008",
+      "target_doc": null,
+      "note": "症状：变压器温度异常升高，油温报警"
+    },
+    {
+      "query": "制动系统制动器失效怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC009",
+      "target_doc": null,
+      "note": "症状：制动响应迟缓或完全失效"
+    },
+    {
+      "query": "轴承主轴承损坏怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC010",
+      "target_doc": null,
+      "note": "症状：主轴承温度升高，振动异常，噪音增大"
+    },
+    {
+      "query": "叶片前缘腐蚀怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC011",
+      "target_doc": null,
+      "note": "症状：叶片前缘表面粗糙，气动效率下降，功率损失"
+    },
+    {
+      "query": "电气系统变频器故障怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC012",
+      "target_doc": null,
+      "note": "症状：发电机输出功率波动，变频器报警跳闸"
+    },
+    {
+      "query": "齿轮箱齿轮断齿怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC013",
+      "target_doc": null,
+      "note": "症状：齿轮箱剧烈振动，金属撞击声，立即停机"
+    },
+    {
+      "query": "变桨系统变桨电机过热怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC014",
+      "target_doc": null,
+      "note": "症状：变桨电机温度报警，变桨速度下降"
+    },
+    {
+      "query": "偏航系统偏航电机异响怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC015",
+      "target_doc": null,
+      "note": "症状：偏航时电机发出异常噪音"
+    },
+    {
+      "query": "液压系统液压泵故障怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC016",
+      "target_doc": null,
+      "note": "症状：液压压力不足，泵体过热，噪音异常"
+    },
+    {
+      "query": "叶片结冰怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC017",
+      "target_doc": null,
+      "note": "症状：叶片表面结冰，气动性能严重下降，振动增大"
+    },
+    {
+      "query": "控制系统传感器漂移怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC018",
+      "target_doc": null,
+      "note": "症状：传感器读数不准确，控制系统误动作"
+    },
+    {
+      "query": "发电机绝缘击穿怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC019",
+      "target_doc": null,
+      "note": "症状：发电机绕组短路，保护装置跳闸"
+    },
+    {
+      "query": "塔筒螺栓松动怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC020",
+      "target_doc": null,
+      "note": "症状：塔筒振动异常，螺栓连接处有异响"
+    },
+    {
+      "query": "制动系统制动盘磨损怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC021",
+      "target_doc": null,
+      "note": "症状：制动效果下降，制动距离增加"
+    },
+    {
+      "query": "电气系统接地故障怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC022",
+      "target_doc": null,
+      "note": "症状：漏电保护跳闸，设备外壳带电"
+    },
+    {
+      "query": "齿轮箱油封泄漏怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC023",
+      "target_doc": null,
+      "note": "症状：润滑油泄漏，油位下降"
+    },
+    {
+      "query": "叶片表面凹陷怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC024",
+      "target_doc": null,
+      "note": "症状：叶片表面出现凹陷，气动性能下降"
+    },
+    {
+      "query": "变压器绝缘油老化怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC025",
+      "target_doc": null,
+      "note": "症状：绝缘油性能下降，介损增大"
+    },
+    {
+      "query": "齿轮箱齿面点蚀怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC026",
+      "target_doc": null,
+      "note": "症状：齿轮表面出现麻点，传动效率下降"
+    },
+    {
+      "query": "发电机轴承异响怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC027",
+      "target_doc": null,
+      "note": "症状：发电机轴承发出异常噪音"
+    },
+    {
+      "query": "变桨系统角度传感器故障怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC028",
+      "target_doc": null,
+      "note": "症状：变桨角度读数不准确"
+    },
+    {
+      "query": "偏航系统解缆失效怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC029",
+      "target_doc": null,
+      "note": "症状：电缆扭转无法自动解除"
+    },
+    {
+      "query": "液压系统蓄能器失效怎么处理？",
+      "layer": "fault_case",
+      "expect": "answer",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": "故障ID：FC030",
+      "target_doc": null,
+      "note": "症状：液压系统压力不稳定，应急制动失效"
+    },
+    {
+      "query": "风电机组齿轮箱维护技术规范有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "technical_docs",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "technical_docs",
+        "title": "风电机组齿轮箱维护技术规范"
+      },
+      "note": ""
+    },
+    {
+      "query": "风力发电机组叶片检测技术有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "technical_docs",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": {
+        "source": "technical_docs",
+        "title": "风力发电机组叶片检测技术"
+      },
+      "note": ""
+    },
+    {
+      "query": "风电机组变桨系统工作原理及故障诊断有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "technical_docs",
+      "qtype": "系统原理",
+      "target_text": null,
+      "target_doc": {
+        "source": "technical_docs",
+        "title": "风电机组变桨系统工作原理及故障诊断"
+      },
+      "note": ""
+    },
+    {
+      "query": "风力发电机组偏航控制系统有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "technical_docs",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": {
+        "source": "technical_docs",
+        "title": "风力发电机组偏航控制系统"
+      },
+      "note": ""
+    },
+    {
+      "query": "风电机组发电机维护手册有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "technical_docs",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "technical_docs",
+        "title": "风电机组发电机维护手册"
+      },
+      "note": ""
+    },
+    {
+      "query": "风电机组液压系统维护规范有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "technical_docs",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "technical_docs",
+        "title": "风电机组液压系统维护规范"
+      },
+      "note": ""
+    },
+    {
+      "query": "风电机组SCADA系统数据分析方法有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "technical_docs",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": {
+        "source": "technical_docs",
+        "title": "风电机组SCADA系统数据分析方法"
+      },
+      "note": ""
+    },
+    {
+      "query": "风电机组状态监测与故障诊断技术有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "technical_docs",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": {
+        "source": "technical_docs",
+        "title": "风电机组状态监测与故障诊断技术"
+      },
+      "note": ""
+    },
+    {
+      "query": "风电机组塔筒结构设计与维护有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "technical_docs",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "technical_docs",
+        "title": "风电机组塔筒结构设计与维护"
+      },
+      "note": ""
+    },
+    {
+      "query": "风电机组电气系统维护有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "technical_docs",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "technical_docs",
+        "title": "风电机组电气系统维护"
+      },
+      "note": ""
+    },
+    {
+      "query": "风电机组日常巡检规程有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "operations_manual",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "operations_manual",
+        "title": "风电机组日常巡检规程"
+      },
+      "note": ""
+    },
+    {
+      "query": "风电机组定期维护周期表有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "operations_manual",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "operations_manual",
+        "title": "风电机组定期维护周期表"
+      },
+      "note": ""
+    },
+    {
+      "query": "齿轮箱维护操作规程有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "operations_manual",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "operations_manual",
+        "title": "齿轮箱维护操作规程"
+      },
+      "note": ""
+    },
+    {
+      "query": "发电机维护操作规程有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "operations_manual",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "operations_manual",
+        "title": "发电机维护操作规程"
+      },
+      "note": ""
+    },
+    {
+      "query": "变桨系统维护操作规程有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "operations_manual",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "operations_manual",
+        "title": "变桨系统维护操作规程"
+      },
+      "note": ""
+    },
+    {
+      "query": "偏航系统维护操作规程有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "operations_manual",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "operations_manual",
+        "title": "偏航系统维护操作规程"
+      },
+      "note": ""
+    },
+    {
+      "query": "液压系统维护操作规程有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "operations_manual",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "operations_manual",
+        "title": "液压系统维护操作规程"
+      },
+      "note": ""
+    },
+    {
+      "query": "叶片维护操作规程有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "operations_manual",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "operations_manual",
+        "title": "叶片维护操作规程"
+      },
+      "note": ""
+    },
+    {
+      "query": "制动系统维护操作规程有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "operations_manual",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "operations_manual",
+        "title": "制动系统维护操作规程"
+      },
+      "note": ""
+    },
+    {
+      "query": "电气系统维护操作规程有哪些要求？",
+      "layer": "doc_title",
+      "expect": "answer",
+      "source": "operations_manual",
+      "qtype": "维护操作",
+      "target_text": null,
+      "target_doc": {
+        "source": "operations_manual",
+        "title": "电气系统维护操作规程"
+      },
+      "note": ""
+    },
+    {
+      "query": "偏航系统制动器失效怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 制动系统"
+    },
+    {
+      "query": "偏航系统制动盘磨损怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 制动系统"
+    },
+    {
+      "query": "制动系统偏航偏差过大怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "制动系统偏航电机异响怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "发电机偏航偏差过大怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "发电机偏航电机异响怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "变压器偏航偏差过大怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "变压器偏航电机异响怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "变桨系统偏航偏差过大怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "变桨系统偏航电机异响怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "叶片偏航偏差过大怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "叶片偏航电机异响怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "塔筒偏航偏差过大怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "塔筒偏航电机异响怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "液压系统偏航偏差过大怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "液压系统偏航电机异响怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "齿轮箱偏航偏差过大怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "齿轮箱偏航电机异响怎么处理？",
+      "layer": "near_miss",
+      "expect": "refuse",
+      "source": "fault_cases",
+      "qtype": "故障诊断",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料中该故障只属于 偏航系统"
+    },
+    {
+      "query": "如何做红烧肉？",
+      "layer": "negative_ood",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "完全域外"
+    },
+    {
+      "query": "明天北京天气怎么样？",
+      "layer": "negative_ood",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "域外，且与语料共有「天气」一词，考察多字词判据"
+    },
+    {
+      "query": "请帮我写一段 Python 快排",
+      "layer": "negative_ood",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "编程问题"
+    },
+    {
+      "query": "推荐几部科幻电影",
+      "layer": "negative_ood",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "纯口语，无实词概念命中"
+    },
+    {
+      "query": "股票今天涨了吗？",
+      "layer": "negative_ood",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "金融问题"
+    },
+    {
+      "query": "怎么申请信用卡？",
+      "layer": "negative_ood",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "生活事务"
+    },
+    {
+      "query": "今晚吃什么好",
+      "layer": "negative_ood",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "闲聊"
+    },
+    {
+      "query": "帮我订一张去上海的机票",
+      "layer": "negative_ood",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "跑腿类请求"
+    },
+    {
+      "query": "介绍一本好看的小说",
+      "layer": "negative_ood",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "娱乐推荐"
+    },
+    {
+      "query": "这首歌叫什么名字",
+      "layer": "negative_ood",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "音乐识别"
+    },
+    {
+      "query": "齿轮箱市面上的采购价格是多少？",
+      "layer": "negative_missing",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "命中齿轮箱，但语料无价格信息"
+    },
+    {
+      "query": "2024 年某风场的实际发电量是多少？",
+      "layer": "negative_missing",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "性能优化",
+      "target_text": null,
+      "target_doc": null,
+      "note": "命中发电量，但语料无运行数据"
+    },
+    {
+      "query": "风电机组的质保期是几年？",
+      "layer": "negative_missing",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料无商务条款"
+    },
+    {
+      "query": "塔筒的高度是多少米？",
+      "layer": "negative_missing",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料无具体型号尺寸"
+    },
+    {
+      "query": "如何联系设备厂家售后？",
+      "layer": "negative_missing",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料无联系方式"
+    },
+    {
+      "query": "变桨系统的轴承型号是什么？",
+      "layer": "negative_missing",
+      "expect": "refuse",
+      "source": "manual",
+      "qtype": "其他",
+      "target_text": null,
+      "target_doc": null,
+      "note": "语料无备件型号清单"
+    }
+  ]
+}

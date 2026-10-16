@@ -16,7 +16,8 @@ import time
 from pathlib import Path
 from typing import Dict, List, Sequence
 
-from pure_rag.text_utils import DOMAIN_WORDS, SYNONYMS, normalize
+from pure_rag.datasets import rewrite_query
+from pure_rag.text_utils import DOMAIN_WORDS, normalize
 
 
 class Evaluator:
@@ -35,6 +36,221 @@ class Evaluator:
             pairs = json.load(f).get("qa_pairs", [])
         return pairs[:limit] if limit else pairs
 
+    # -- 分层评测（目标可以是文本签名，也可以是整篇文档） --------------------
+    @staticmethod
+    def _resolve_target(item) -> tuple:
+        """把评测条目归一化成 (查询, 目标文本, 目标文档)"""
+        if isinstance(item, dict):
+            return item.get("query", ""), item.get("target_text"), item.get("target_doc")
+        if isinstance(item, (tuple, list)):
+            return item[0], item[1] if len(item) > 1 else None, None
+        return item, None, None
+
+    @staticmethod
+    def rank_of_item(engine, item, ranked_ids: List[int]) -> int:
+        """条目在给定检索结果里的排名（1 起，未命中 0）"""
+        _query, target_text, target_doc = Evaluator._resolve_target(item)
+        target = normalize(target_text) if target_text else ""
+        for rank, doc_id in enumerate(ranked_ids, 1):
+            chunk = engine.chunks[doc_id]
+            if target and target in normalize(chunk["content"]):
+                return rank
+            if target_doc:
+                metadata = chunk.get("metadata", {})
+                if (metadata.get("source") == target_doc.get("source")
+                        and metadata.get("title") == target_doc.get("title")):
+                    return rank
+        return 0
+
+    def evaluate_layers(self, engine, dataset: Dict = None, top_k: int = 3,
+                        method: str = "hybrid", verbose: bool = False) -> Dict:
+        """
+        按层评测：回答层看召回（Recall@k / MRR / nDCG@k），拒答层看拒答率
+
+        同时按数据来源（fault_cases / technical_docs / ...）与问题类型（故障诊断 / ...）分组，
+        便于定位系统在哪一类问题上更弱。
+        """
+        from pure_rag.datasets import load_dataset
+
+        dataset = dataset or load_dataset(self.data_dir)
+        engine.ensure_loaded()
+
+        layers, by_source, by_qtype = {}, {}, {}
+        details = []
+
+        for item in dataset.get("items", []):
+            result = engine.query(item["query"], top_k=top_k, method=method)
+            ranked = [doc["doc_id"] for doc in result["retrieved_docs"]]
+            rank = (self.rank_of_item(engine, item, ranked)
+                    if item.get("expect") == "answer" else 0)
+            refused = bool(result["confidence"].get("refused"))
+
+            record = {
+                "query": item["query"], "layer": item["layer"],
+                "source": item.get("source", ""), "qtype": item.get("qtype", ""),
+                "rank": rank, "refused": refused,
+                "answer": result["answer"],
+            }
+            details.append(record)
+
+            for bucket_key, key in ((layers, item["layer"]), (by_source, item.get("source")),
+                                    (by_qtype, item.get("qtype"))):
+                bucket = bucket_key.setdefault(key or "其他", {
+                    "count": 0, "answer_count": 0, "refuse_count": 0,
+                    "hits": 0, "mrr_sum": 0.0, "ndcg_sum": 0.0, "refused": 0})
+                bucket["count"] += 1
+                # 召回与拒答分别只在自己的分母上统计，避免"应拒答"的条目被算成未命中
+                if item.get("expect") == "answer":
+                    bucket["answer_count"] += 1
+                    if rank:
+                        bucket["hits"] += 1
+                        bucket["mrr_sum"] += 1.0 / rank
+                        bucket["ndcg_sum"] += 1.0 / math.log2(rank + 1)
+                else:
+                    bucket["refuse_count"] += 1
+                    if refused:
+                        bucket["refused"] += 1
+            if verbose:
+                mark = "拒答" if refused else (f"rank={rank}" if rank else "未命中")
+                print(f"  [{item['layer']}] {mark:<8} {item['query'][:36]}")
+
+        def _finalize(buckets: Dict) -> Dict:
+            for bucket in buckets.values():
+                answers = bucket["answer_count"] or 1
+                refuses = bucket["refuse_count"] or 1
+                bucket["recall"] = bucket["hits"] / answers
+                bucket["mrr"] = bucket["mrr_sum"] / answers
+                bucket["ndcg"] = bucket["ndcg_sum"] / answers
+                bucket["refusal_rate"] = bucket["refused"] / refuses
+            return buckets
+
+        return {
+            "dataset": {"counts": dataset.get("counts", {}),
+                        "total": len(dataset.get("items", []))},
+            "config": {"top_k": top_k, "method": method},
+            "layers": _finalize(layers),
+            "by_source": _finalize(by_source),
+            "by_qtype": _finalize(by_qtype),
+            "details": details,
+        }
+
+    # -- 评测报告 -----------------------------------------------------------
+    def build_report(self, engine, top_k: int = 3, method: str = "hybrid",
+                     rebuild: bool = False, verbose: bool = False) -> Dict:
+        """
+        生成可复现的评测报告
+
+        报告固定包含：环境与语料概览、评测集构成、分层指标、按来源/问题类型的召回、
+        拒答阈值标定、以及已知边界说明 —— 便于把同一份报告直接贴进论文或 PR。
+        """
+        from pure_rag.datasets import load_dataset
+
+        engine.ensure_loaded()
+        dataset = load_dataset(self.data_dir, rebuild=rebuild)
+        layered = self.evaluate_layers(engine, dataset, top_k=top_k, method=method,
+                                       verbose=verbose)
+        return {
+            "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "markdown": self._render_report(engine, dataset, layered, top_k, method),
+            "layers": layered,
+            "stats": engine.stats(),
+            "dataset": dataset.get("counts", {}),
+        }
+
+    def _render_report(self, engine, dataset: Dict, layered: Dict,
+                       top_k: int, method: str) -> str:
+        import platform
+
+        from pure_rag import __version__
+        from pure_rag.datasets import ANSWER_LAYERS, LAYERS
+
+        stats = engine.stats()
+        lines = [
+            "# WindRAG 检索评测报告",
+            "",
+            f"- 生成时间：{time.strftime('%Y-%m-%d %H:%M:%S')}",
+            f"- 检索引擎：纯 Python 内核 v{__version__}（零第三方依赖，Python {platform.python_version()}）",
+            f"- 语料：{stats['source_documents']} 篇 → {stats['chunks']} 个分块，词表 {stats['vocabulary']} 词",
+            f"- 评测集：{layered['dataset']['total']} 条（{len(dataset.get('counts', {}))} 层，"
+            f"由语料自动推导）",
+            f"- 参数：top_k={top_k}、method={method}、融合权重 α "
+            f"{'自适应' if engine.alpha_override is None else f'固定 {engine.alpha_override}'}、"
+            f"拒答阈值 {engine.min_coverage:.2f}",
+            "",
+            "## 评测集构成",
+            "",
+            "| 层 | 说明 | 条数 | 期望行为 |",
+            "|---|---|---|---|",
+        ]
+        for layer, label in LAYERS.items():
+            count = dataset.get("counts", {}).get(layer, 0)
+            if not count:
+                continue
+            expect = "命中目标" if layer in ANSWER_LAYERS else "拒答"
+            lines.append(f"| `{layer}` | {label} | {count} | {expect} |")
+
+        lines += ["", "## 分层指标", "",
+                  f"| 层 | 条数 | Recall@{top_k} | MRR | nDCG@{top_k} | 拒答率 |",
+                  "|---|---|---|---|---|---|"]
+        for layer, label in LAYERS.items():
+            bucket = layered["layers"].get(layer)
+            if not bucket:
+                continue
+            if layer in ANSWER_LAYERS:
+                lines.append(f"| {label} | {bucket['count']} | {bucket['recall']:.2%} "
+                             f"| {bucket['mrr']:.4f} | {bucket['ndcg']:.4f} "
+                             f"| {bucket['refusal_rate']:.2%} |")
+            else:
+                lines.append(f"| {label} | {bucket['count']} | — | — | — "
+                             f"| {bucket['refusal_rate']:.2%} |")
+
+        for title, key in (("按数据来源", "by_source"), ("按问题类型", "by_qtype")):
+            groups = layered[key]
+            if not groups:
+                continue
+            lines += ["", f"## {title}", "",
+                      f"| 分组 | 回答条数 | Recall@{top_k} | MRR | 拒答条数 | 拒答率 |",
+                      "|---|---|---|---|---|---|"]
+            for name, bucket in sorted(groups.items(),
+                                       key=lambda kv: -kv[1]["count"]):
+                lines.append(
+                    f"| {name or '未知'} | {bucket['answer_count']} | {bucket['recall']:.2%} "
+                    f"| {bucket['mrr']:.4f} | {bucket['refuse_count']} "
+                    f"| {bucket['refusal_rate']:.2%} |")
+
+        rows = self.calibrate_threshold(engine, num_questions=15, top_k=top_k, method=method)
+        if rows:
+            lines += ["", "## 拒答阈值标定", "",
+                      f"| 拒答阈值 | 正例回答率 | 正例召回@{top_k} | 反例拒答率 |",
+                      "|---|---|---|---|"]
+            for row in rows:
+                lines.append(f"| {row['threshold']:.2f} | {row['answer_rate']:.2%} "
+                             f"| {row['positive_recall']:.2%} "
+                             f"| {row['negative_refusal_rate']:.2%} |")
+
+        lines += [
+            "", "## 说明与已知边界", "",
+            "- 评测集由语料自动推导（QA 对原句/同义改写、故障案例「部件+故障类型」、"
+            "文档标题、近邻负例、人工负例），**无需人工标注**，因此可随语料一起演进、可复现生成。",
+            "- 召回类指标衡量的是「目标块是否进入 top-k」，不是「答案是否正确」；"
+            "答案质量目前只用领域术语覆盖率作代理。",
+            "- `near_miss`（近邻负例）用的是语料里不存在的「部件 × 故障」组合，"
+            "查询词都是领域实词，覆盖率判据抓不住它 —— 这类问题部分可以「类比回答」，"
+            "因此该层的拒答率应当视为下限而非目标。",
+            "- `negative_missing`（域内缺资料）同样只能被部分识别，这是覆盖率指标的固有边界。",
+        ]
+        return "\n".join(lines)
+
+    def save_markdown_report(self, report: Dict, path: str = "data/pure_index/report.md") -> str:
+        """落盘报告：Markdown 给人看，同名的 .json 给后续对比用"""
+        output = Path(path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(report["markdown"], encoding="utf-8")
+        structured = {key: value for key, value in report.items() if key != "markdown"}
+        with open(output.with_suffix(".json"), "w", encoding="utf-8") as f:
+            json.dump(structured, f, ensure_ascii=False, indent=2)
+        return str(output)
+
     def build_rewrites(self, pairs: List[Dict] = None, limit: int = None) -> List[Dict]:
         """
         构造「改写查询」评测集，用来衡量语义鲁棒性（而非仅仅是原句匹配）：
@@ -48,23 +264,10 @@ class Evaluator:
         pairs = self.load_qa_pairs() if pairs is None else pairs
         samples = []
         for pair in pairs:
-            rewritten = self._rewrite(pair["question"])
+            rewritten = rewrite_query(pair["question"])
             if rewritten and rewritten != pair["question"]:
                 samples.append({"question": rewritten, "target": pair["question"]})
         return samples[:limit] if limit else samples
-
-    @staticmethod
-    def _rewrite(question: str) -> str:
-        """按同义词替换优先、否则退化为关键词查询"""
-        for alias, standards in SYNONYMS.items():
-            for standard in standards:
-                if standard in question:
-                    return question.replace(standard, alias, 1)
-
-        for phrase in ("怎么", "如何", "什么", "为什么", "哪些", "是否", "怎样"):
-            if phrase in question:
-                return question.replace(phrase, "").replace("？", "").replace("?", "").strip()
-        return ""
 
     def load_negatives(self, limit: int = None) -> List[Dict]:
         """加载拒答评测集（知识库答不了的问题）"""
@@ -176,10 +379,11 @@ class Evaluator:
         recall = mrr = ndcg = 0.0
         details = []
 
-        for query, target in items:
+        for item in items:
+            query, _target_text, _target_doc = self._resolve_target(item)
             retrieval = engine.retrieve(query, top_k=top_k, method=method)
-            rank = self._rank_of(engine, target,
-                                 [doc["doc_id"] for doc in retrieval["documents"]])
+            rank = self.rank_of_item(engine, item,
+                                     [doc["doc_id"] for doc in retrieval["documents"]])
             recall += 1.0 if rank else 0.0
             mrr += 1.0 / rank if rank else 0.0
             ndcg += 1.0 / math.log2(rank + 1) if rank else 0.0

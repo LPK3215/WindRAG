@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 from typing import Dict, Iterator, List
 
+from pure_rag.datasets import ANSWER_LAYERS, load_dataset
 from pure_rag.engine import RAGEngine
 from pure_rag.evaluator import Evaluator
 
@@ -25,7 +26,8 @@ from pure_rag.evaluator import Evaluator
 DEFAULT_GRID: Dict[str, List] = {
     "chunk_size": [300, 400, 600],
     "overlap": [60, 100],
-    "alpha_override": [None, 0.5, 0.65, 0.8],
+    # 消融实验显示本语料更依赖 BM25 的精确匹配，因此把低 α 也纳入搜索
+    "alpha_override": [None, 0.3, 0.5, 0.65, 0.8],
     "mmr_lambda": [0.6, 0.75, 1.0],
     "discover": [True, False],
 }
@@ -34,7 +36,7 @@ DEFAULT_GRID: Dict[str, List] = {
 QUICK_GRID: Dict[str, List] = {
     "chunk_size": [400],
     "overlap": [80],
-    "alpha_override": [None, 0.8],
+    "alpha_override": [None, 0.3],
     "mmr_lambda": [0.75, 1.0],
     "discover": [True],
 }
@@ -52,13 +54,11 @@ class Tuner:
         self.top_k = top_k
         self.evaluator = Evaluator(data_dir)
 
-        pairs = self.evaluator.load_qa_pairs(num_questions)
-        # 两组评测数据：原句自召回 + 同义词/关键词改写，避免只优化"逐字匹配"
-        self.verbatim = [(pair["question"], pair["question"]) for pair in pairs]
-        self.rewrites = [
-            (sample["question"], sample["target"])
-            for sample in self.evaluator.build_rewrites(pairs)
-        ]
+        # 目标集用分层评测集里的"回答层"（共 80 条：QA 原句/改写/案例/文档），
+        # 比只用 15 条 QA 更能区分配置差异
+        self.dataset = load_dataset(data_dir)
+        self.positives = [item for item in self.dataset.get("items", [])
+                          if item["layer"] in ANSWER_LAYERS]
 
     # -- 网格 ---------------------------------------------------------------
     @staticmethod
@@ -80,22 +80,17 @@ class Tuner:
         engine.build(chunk_size=params["chunk_size"], overlap=params["overlap"],
                      discover=params["discover"], verbose=False)
 
-        verbatim = self.evaluator.measure(engine, self.verbatim, self.top_k)
-        rewrites = (self.evaluator.measure(engine, self.rewrites, self.top_k)
-                    if self.rewrites else None)
-
-        # 两组指标按样本数加权平均
-        weights = [(verbatim, verbatim["count"])]
-        if rewrites:
-            weights.append((rewrites, rewrites["count"]))
-        total_weight = sum(weight for _, weight in weights) or 1
+        layered = self.evaluator.evaluate_layers(engine, self.dataset, self.top_k)
+        buckets = [bucket for name, bucket in layered["layers"].items()
+                   if name in ANSWER_LAYERS]
+        answers = sum(bucket["answer_count"] for bucket in buckets) or 1
 
         metrics = {
-            key: sum(result[key] * weight for result, weight in weights) / total_weight
-            for key in ("recall", "mrr", "ndcg")
+            "recall": sum(bucket["hits"] for bucket in buckets) / answers,
+            "mrr": sum(bucket["mrr_sum"] for bucket in buckets) / answers,
+            "ndcg": sum(bucket["ndcg_sum"] for bucket in buckets) / answers,
         }
-        metrics["verbatim_recall"] = verbatim["recall"]
-        metrics["rewrite_recall"] = rewrites["recall"] if rewrites else None
+        metrics["rewrite_recall"] = layered["layers"].get("qa_rewrite", {}).get("recall", 0.0)
         metrics["score"] = round(0.40 * metrics["recall"] + 0.35 * metrics["mrr"]
                                  + 0.25 * metrics["ndcg"], 6)
         engine._cache.clear()      # 释放缓存，避免多轮搜索堆积内存
@@ -108,8 +103,7 @@ class Tuner:
         grid = grid or (QUICK_GRID if quick else DEFAULT_GRID)
         combos = list(self.combinations(grid))
         if verbose:
-            print(f"开始网格搜索：{len(combos)} 组参数 × "
-                  f"{len(self.verbatim)} 条原句 + {len(self.rewrites)} 条改写查询")
+            print(f"开始网格搜索：{len(combos)} 组参数 × {len(self.positives)} 条回答层查询")
             print(f"搜索空间：{grid}")
 
         start = time.time()
@@ -123,7 +117,7 @@ class Tuner:
                 if verbose and index % step == 0:
                     best = max(results, key=lambda item: item["score"])
                     print(f"  [{index}/{len(combos)}] score={best['score']:.4f} "
-                          f"原句={best['verbatim_recall']:.0%} "
+                          f"召回={best['recall']:.0%} "
                           f"改写={best['rewrite_recall']:.0%} mrr={best['mrr']:.4f} "
                           f"(chunk={best['chunk_size']} α={best['alpha_override']} "
                           f"λ={best['mmr_lambda']} disc={best['discover']})")
@@ -139,8 +133,8 @@ class Tuner:
                   f"discover={best['discover']}")
             print(f"  alpha_override={best['alpha_override']} mmr_lambda={best['mmr_lambda']} "
                   f"use_expansion={best.get('use_expansion', True)}（默认开启，未参与搜索）")
-            print(f"  Recall@{self.top_k}：原句 {best['verbatim_recall']:.2%} / "
-                  f"改写 {best['rewrite_recall']:.2%}（加权 {best['recall']:.2%}）")
+            print(f"  Recall@{self.top_k}：回答层 {best['recall']:.2%} / "
+                  f"改写层 {best['rewrite_recall']:.2%}")
             print(f"  MRR={best['mrr']:.4f} nDCG={best['ndcg']:.4f} score={best['score']:.4f}")
             print(f"  已写入 {self.index_dir / TUNING_FILE}（分块参数在下次 build 时生效）")
 

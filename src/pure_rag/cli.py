@@ -246,6 +246,14 @@ def cmd_chat(args) -> int:
 def cmd_eval(args) -> int:
     engine = create_engine(args)
     evaluator = Evaluator(args.data_dir)
+    if args.report:
+        report = evaluator.build_report(engine, top_k=args.top_k, method=args.method,
+                                        rebuild=args.rebuild)
+        print(report["markdown"])
+        if not args.no_save:
+            print(f"\n报告已保存到 {evaluator.save_markdown_report(report, args.report_path)}")
+        return 0
+
     result = evaluator.evaluate(engine, num_questions=args.num, top_k=args.top_k,
                                method=args.method, robust=args.robust,
                                negative=args.negative)
@@ -402,6 +410,12 @@ def build_parser() -> argparse.ArgumentParser:
                           help="额外评测拒答能力与拒答阈值标定")
     evaluate.add_argument("--min-recall", type=float, default=None,
                           help="质量门禁：Recall@k 低于该值时以非零退出码结束")
+    evaluate.add_argument("--report", action="store_true",
+                          help="生成分层评测报告（含按来源/问题类型的召回与阈值标定）")
+    evaluate.add_argument("--rebuild", action="store_true",
+                          help="重新从语料生成评测集（默认复用已生成的 eval_set.json）")
+    evaluate.add_argument("--report-path", default="data/pure_index/report.md",
+                          help="报告输出路径（同名 .json 一并写出）")
     evaluate.add_argument("--no-save", action="store_true", help="不保存报告文件")
     evaluate.set_defaults(func=cmd_eval)
 

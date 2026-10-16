@@ -21,6 +21,7 @@ from pure_rag.ablation import ALPHA_SWEEP, CONFIGURATIONS, AblationRunner
 from pure_rag.bm25 import BM25Index
 from pure_rag.chunker import build_index_text, chunk_text
 from pure_rag.cli import save_transcript
+from pure_rag.datasets import build_dataset
 from pure_rag.engine import RAGEngine
 from pure_rag.evaluator import Evaluator
 from pure_rag.fusion import (min_max, mmr_select, reciprocal_rank_fusion,
@@ -476,6 +477,104 @@ class IncrementalAddTest(unittest.TestCase):
         self.assertNotIn("#", content)
 
 
+class DatasetTest(unittest.TestCase):
+    """分层评测集：构成、目标完整性、确定性"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.dataset = build_dataset(os.path.join(ROOT, "data"))
+        cls.items = cls.dataset["items"]
+
+    def test_all_layers_present(self):
+        counts = self.dataset["counts"]
+        for layer in ("qa_verbatim", "qa_rewrite", "fault_case", "doc_title",
+                      "near_miss", "negative_ood", "negative_missing"):
+            self.assertGreater(counts.get(layer, 0), 0, msg=f"{layer} 层为空")
+        self.assertGreaterEqual(len(self.items), 100)
+
+    def test_answer_items_have_target(self):
+        for item in self.items:
+            if item["expect"] == "answer":
+                self.assertTrue(item["target_text"] or item["target_doc"],
+                                msg=f"缺少目标：{item['query']}")
+
+    def test_refuse_items_have_no_target(self):
+        for item in self.items:
+            if item["expect"] == "refuse":
+                self.assertIsNone(item["target_text"])
+                self.assertIsNone(item["target_doc"])
+
+    def test_build_is_deterministic(self):
+        again = build_dataset(os.path.join(ROOT, "data"))
+        self.assertEqual([item["query"] for item in again["items"]],
+                         [item["query"] for item in self.items])
+        self.assertEqual(again["counts"], self.dataset["counts"])
+
+    def test_rewrite_layer_differs_from_verbatim(self):
+        verbatim = {item["query"] for item in self.items if item["layer"] == "qa_verbatim"}
+        rewritten = {item["query"] for item in self.items if item["layer"] == "qa_rewrite"}
+        self.assertTrue(rewritten)
+        self.assertFalse(rewritten & verbatim)
+
+    def test_fault_case_queries_avoid_duplicate_component(self):
+        queries = [item["query"] for item in self.items if item["layer"] == "fault_case"]
+        self.assertTrue(queries)
+        for query in queries:
+            self.assertNotIn("发电机发电机", query)
+            self.assertIn("怎么处理", query)
+
+
+class LayeredEvalTest(unittest.TestCase):
+    """分层评测：目标判定与分母口径"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp_dir = tempfile.mkdtemp(prefix="pure_rag_layers_")
+        cls.engine = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+                               index_dir=os.path.join(cls.tmp_dir, "index"),
+                               use_llm=False)
+        cls.engine.build(verbose=False)
+        cls.evaluator = Evaluator(os.path.join(ROOT, "data"))
+        cls.dataset = build_dataset(os.path.join(ROOT, "data"))
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp_dir, ignore_errors=True)
+
+    def test_rank_by_text_and_by_document(self):
+        item_text = next(i for i in self.dataset["items"] if i["layer"] == "fault_case")
+        item_doc = next(i for i in self.dataset["items"] if i["layer"] == "doc_title")
+        ranked = [doc["doc_id"] for doc in
+                  self.engine.retrieve(item_text["query"], top_k=5)["documents"]]
+        self.assertGreaterEqual(
+            self.evaluator.rank_of_item(self.engine, item_text, ranked), 1)
+        ranked_doc = [doc["doc_id"] for doc in
+                      self.engine.retrieve(item_doc["query"], top_k=5)["documents"]]
+        self.assertGreaterEqual(
+            self.evaluator.rank_of_item(self.engine, item_doc, ranked_doc), 1)
+
+    def test_unknown_target_returns_zero(self):
+        item = {"query": "齿轮箱", "target_text": "不存在的签名"}
+        ranked = [doc["doc_id"] for doc in
+                  self.engine.retrieve("齿轮箱", top_k=3)["documents"]]
+        self.assertEqual(self.evaluator.rank_of_item(self.engine, item, ranked), 0)
+
+    def test_buckets_use_their_own_denominators(self):
+        layered = self.evaluator.evaluate_layers(self.engine, self.dataset, top_k=3)
+        fault = layered["layers"]["fault_case"]
+        near_miss = layered["layers"]["near_miss"]
+        self.assertEqual(fault["answer_count"], fault["count"])
+        self.assertEqual(near_miss["refuse_count"], near_miss["count"])
+        self.assertEqual(near_miss["answer_count"], 0)
+        self.assertGreaterEqual(fault["recall"], 0.9)
+
+    def test_report_contains_all_sections(self):
+        report = self.evaluator.build_report(self.engine)
+        for section in ("## 评测集构成", "## 分层指标", "## 按数据来源",
+                        "## 按问题类型", "## 拒答阈值标定", "## 说明与已知边界"):
+            self.assertIn(section, report["markdown"])
+
+
 class AblationTest(unittest.TestCase):
     """消融实验：配置可跑通、指标结构完整、开关确实生效"""
 
@@ -485,7 +584,8 @@ class AblationTest(unittest.TestCase):
         self.assertEqual(len(payload["results"]), len(CONFIGURATIONS))
         for item in payload["results"]:
             for key in ("recall_at_k", "mrr", "ndcg_at_k", "rewrite_recall",
-                        "keyword_coverage", "refusal_rate", "avg_latency_ms"):
+                        "case_recall", "near_miss_refusal", "ood_refusal",
+                        "keyword_coverage", "avg_latency_ms"):
                 self.assertIn(key, item["metrics"])
             self.assertLessEqual(item["metrics"]["recall_at_k"], 1.0)
             self.assertGreaterEqual(item["metrics"]["recall_at_k"], 0.0)
