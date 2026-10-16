@@ -155,7 +155,10 @@ class WindPowerKnowledgeGraphBuilder:
             ("液压系统", "component", {"description": "提供液压动力"}),
             ("制动系统", "component", {"description": "安全制动"}),
             ("塔筒", "component", {"description": "支撑结构"}),
-            ("变压器", "component", {"description": "电压变换"})
+            ("变压器", "component", {"description": "电压变换"}),
+            ("轴承", "component", {"description": "支撑旋转部件，承受载荷"}),
+            ("控制系统", "component", {"description": "机组运行控制与监测"}),
+            ("变频器", "component", {"description": "交直流电能变换与调速"})
         ]
         
         for comp_id, comp_type, props in components:

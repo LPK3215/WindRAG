@@ -34,7 +34,10 @@ class WindTurbineRAG:
         
         print(f"加载向量模型: {model_name}")
         self.model = SentenceTransformer(model_name)
-        
+
+        # 查询 embedding 缓存（避免同一 query 重复编码）
+        self._query_emb_cache: Dict[str, np.ndarray] = {}
+
         # 加载索引
         self._load_indexes()
         
@@ -88,16 +91,29 @@ class WindTurbineRAG:
         print("索引加载完成！")
     
     def _load_knowledge_graph(self):
-        """加载知识图谱"""
+        """加载知识图谱，并预计算部件节点的 embedding 缓存"""
         kg_path = self.data_dir / "knowledge_graph.json"
+        self._kg_component_embeddings: Dict[str, np.ndarray] = {}
         if kg_path.exists():
             print("加载知识图谱...")
             kg = KnowledgeGraph.load(str(kg_path))
             print(f"知识图谱加载完成！节点数: {len(kg.nodes)}, 边数: {len([e for edges in kg.edges.values() for e in edges])}")
+            # 预编码所有部件节点描述，避免每次查询重复编码
+            for node_id, node_data in kg.nodes.items():
+                if node_data["type"] == "component":
+                    text = node_data["properties"].get("description", node_id)
+                    self._kg_component_embeddings[node_id] = self.model.encode([text])[0]
+            print(f"已预计算 {len(self._kg_component_embeddings)} 个部件节点 embedding")
             return kg
         else:
             print("知识图谱文件不存在，跳过加载")
             return None
+
+    def _encode_query(self, query: str) -> np.ndarray:
+        """编码查询并缓存，返回 shape (1, dim)；同一 query 只编码一次"""
+        if query not in self._query_emb_cache:
+            self._query_emb_cache[query] = self.model.encode([query])
+        return self._query_emb_cache[query]
     
     def _load_llm(self):
         """加载ModelScope LLM"""
@@ -119,9 +135,9 @@ class WindTurbineRAG:
     
     def vector_search(self, query: str, top_k: int = 5) -> List[Tuple[int, float]]:
         """向量检索（L2归一化后计算余弦相似度）"""
-        # 生成查询向量
-        query_embedding = self.model.encode([query])
-        
+        # 生成查询向量（带缓存）
+        query_embedding = self._encode_query(query)
+
         # L2归一化文档向量
         norms = np.linalg.norm(self.embeddings, axis=1, keepdims=True)
         norms = np.where(norms == 0, 1e-8, norms)  # 避免除零
@@ -160,7 +176,7 @@ class WindTurbineRAG:
         # 自适应α预测
         if alpha is None:
             if self.adaptive_fusion_loaded:
-                query_embedding = self.model.encode([query])[0]
+                query_embedding = self._encode_query(query)[0]
                 alpha = self.adaptive_fusion.predict_alpha(query, query_embedding)
             else:
                 alpha = 0.7
@@ -237,13 +253,7 @@ class WindTurbineRAG:
                 "score": score
             })
         
-        # 重排序
-        if use_rerank and len(retrieved) > top_k:
-            retrieved = self._rerank_documents(query, retrieved, top_k)
-        else:
-            retrieved = retrieved[:top_k]
-        
-        # 知识图谱增强
+        # 知识图谱增强（作为候选加入，参与后续重排序）
         if self.kg:
             kg_context = self._query_knowledge_graph(query)
             if kg_context:
@@ -252,62 +262,69 @@ class WindTurbineRAG:
                     "metadata": {"source": "knowledge_graph", "type": "kg_enhancement"},
                     "score": 0.8
                 })
-        
+
+        # 重排序（含检索结果与知识图谱候选）
+        if use_rerank and len(retrieved) > top_k:
+            retrieved = self._rerank_documents(query, retrieved, top_k)
+        else:
+            retrieved = retrieved[:top_k]
+
         return retrieved
     
     def _rerank_documents(self, query: str, documents: List[Dict], top_k: int) -> List[Dict]:
-        """重排序文档"""
-        # 计算查询和文档的相似度
-        query_embedding = self.model.encode([query])
-        
+        """重排序文档（批量编码，避免逐条 encode）"""
+        # 查询向量（带缓存）
+        query_embedding = self._encode_query(query)  # (1, dim)
+        contents = [doc["content"] for doc in documents]
+        doc_embeddings = self.model.encode(contents)  # (n, dim)
+
+        # 批量余弦相似度
+        q_norm = np.linalg.norm(query_embedding, axis=1, keepdims=True)
+        q_norm = np.where(q_norm == 0, 1e-8, q_norm)
+        d_norm = np.linalg.norm(doc_embeddings, axis=1, keepdims=True)
+        d_norm = np.where(d_norm == 0, 1e-8, d_norm)
+        sims = (doc_embeddings / d_norm) @ (query_embedding / q_norm).T
+        sims = sims.flatten()
+
         reranked = []
-        for doc in documents:
-            doc_embedding = self.model.encode([doc["content"]])
-            similarity = np.dot(query_embedding, doc_embedding.T)[0][0]
-            
+        for doc, sim in zip(documents, sims):
             # 结合原始检索分数和语义相似度
-            combined_score = 0.6 * doc["score"] + 0.4 * similarity
+            combined_score = 0.6 * doc["score"] + 0.4 * float(sim)
             reranked.append({
                 "content": doc["content"],
                 "metadata": doc["metadata"],
                 "score": combined_score
             })
-        
+
         # 按综合分数排序
         reranked.sort(key=lambda x: x["score"], reverse=True)
         return reranked[:top_k]
     
     def _query_knowledge_graph(self, query: str) -> str:
-        """查询知识图谱获取相关上下文（基于embedding语义匹配）"""
+        """查询知识图谱获取相关上下文（基于embedding语义匹配，部件节点已预编码）"""
         if not self.kg:
             return ""
-        
-        # 编码查询
-        query_embedding = self.model.encode([query])
+
+        # 编码查询（带缓存）并归一化
+        query_embedding = self._encode_query(query)
         q_norm = np.linalg.norm(query_embedding, axis=1, keepdims=True)
         q_norm = np.where(q_norm == 0, 1e-8, q_norm)
-        normalized_query = query_embedding / q_norm
-        
+        normalized_query = (query_embedding / q_norm)[0]  # (dim,)
+
         best_match = None
         best_score = 0.0
-        
-        # 在所有部件节点中做语义匹配
-        for node_id, node_data in self.kg.nodes.items():
-            if node_data["type"] == "component":
-                # 编码节点描述文本
-                node_text = node_data["properties"].get("description", node_id)
-                node_embedding = self.model.encode([node_text])
-                n_norm = np.linalg.norm(node_embedding, axis=1, keepdims=True)
-                n_norm = np.where(n_norm == 0, 1e-8, n_norm)
-                normalized_node = node_embedding / n_norm
-                
-                # 计算余弦相似度
-                similarity = float(np.dot(normalized_query, normalized_node.T)[0][0])
-                
-                if similarity > best_score:
-                    best_score = similarity
-                    best_match = node_id
-        
+
+        # 在所有已预编码的部件节点中做语义匹配
+        for node_id, node_emb in self._kg_component_embeddings.items():
+            n_norm = np.linalg.norm(node_emb)
+            if n_norm == 0:
+                n_norm = 1e-8
+            normalized_node = node_emb / n_norm
+            similarity = float(np.dot(normalized_query, normalized_node))
+            if similarity > best_score:
+                best_score = similarity
+                best_match = node_id
+
         # 只有当相似度超过阈值时才使用图谱上下文
         if best_match and best_score > 0.5:
             context_parts = []
