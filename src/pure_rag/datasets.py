@@ -12,6 +12,13 @@
 | near_miss        | 部件 × 故障的无效组合 | 无（语料里不存在该搭配） | 严格拒答 |
 | negative_ood     | 域外问题（人工少量）  | 无 | 拒答 |
 | negative_missing | 域内但缺资料（人工少量） | 无 | 拒答（当前机制只能部分识别） |
+| human_like       | 模拟一线工程师的口语化提问 | 同类工单（按部件+故障类型匹配任意一条） | 命中目标 / 拒答 |
+
+目标定位方式有三种，按数据特点选用：
+- `target_text`：块内容里必须包含该子串（用于 QA 对、故障案例这类唯一标识）
+- `target_doc`：块的 metadata 命中 source + title（用于整篇文档，避免长文档只有首块被算命中）
+- `target_component` / `target_fault`：块为工单且部件与故障类型同时命中（用于口语化层——
+  同一故障会有很多条工单，只要召回「同类」即算对，而非指定某一条）
 
 目标定位方式有两种，按数据特点选用：
 - `target_text`：块内容里必须包含该子串（用于 QA 对、故障案例这类唯一标识）
@@ -37,6 +44,7 @@ LAYERS = {
     "near_miss": "近邻负例",
     "negative_ood": "域外问题",
     "negative_missing": "域内缺资料",
+    "human_like": "口语化查询",
 }
 ANSWER_LAYERS = ("qa_verbatim", "qa_rewrite", "fault_case", "doc_title")
 
@@ -80,9 +88,16 @@ def rewrite_query(question: str) -> str:
 
 
 def _item(query: str, layer: str, source: str = "", qtype: str = "",
-          target_text: str = None, target_doc: Dict = None, note: str = "") -> Dict:
-    """统一构造评测条目"""
-    expect = "refuse" if layer in REFUSE_LAYERS else "answer"
+          target_text: str = None, target_doc: Dict = None,
+          target_component: str = None, target_fault: str = None,
+          expect: str = None, note: str = "") -> Dict:
+    """统一构造评测条目
+
+    expect 默认按层决定（拒答层→refuse，其余→answer），调用方可显式覆盖，
+    口语化层里「无效组合」条目就借此标记为 refuse。
+    """
+    if expect is None:
+        expect = "refuse" if layer in REFUSE_LAYERS else "answer"
     return {
         "query": query.strip(),
         "layer": layer,
@@ -91,6 +106,8 @@ def _item(query: str, layer: str, source: str = "", qtype: str = "",
         "qtype": qtype or _main_qtype(query),
         "target_text": target_text,
         "target_doc": target_doc,
+        "target_component": target_component,
+        "target_fault": target_fault,
         "note": note,
     }
 
@@ -242,17 +259,54 @@ def _near_miss_layer(data_dir: str) -> List[Dict]:
     return items
 
 
+def build_human_like_layer(data_dir: str) -> List[Dict]:
+    """口语化评测层：用 data/human_questions.json 里模拟一线工程师的提问
+
+    每条问题标注了对应的 (部件, 故障类型) 作弱标注，判定「检索是否把同类工单送进前 k」。
+    这是人工标注 / 真实问法的占位常驻层 —— 目前由本项目自己写下 50 条口语问法
+    （详见 human_eval.py 与 README「口语化查询验证」一节），后续应替换为真实用户问法
+    + 相关性标注；但这一层会一直作为评测集的一部分存在，专门暴露「合成评测高估可用率」的盲区。
+    """
+    path = Path(data_dir) / "human_questions.json"
+    if not path.exists():
+        return []
+    with open(path, "r", encoding="utf-8") as f:
+        questions = json.load(f)
+
+    items = []
+    for entry in questions:
+        query = (entry.get("q") or "").strip()
+        if not query:
+            continue
+        if entry.get("kind") == "refuse":
+            items.append(_item(query, "human_like", "manual", qtype="口语",
+                               expect="refuse", note=entry.get("expect", "")))
+        else:
+            items.append(_item(query, "human_like", "work_orders", qtype="口语",
+                               target_component=entry.get("component"),
+                               target_fault=entry.get("fault"),
+                               note="弱标注：命中同类工单即算对"))
+    return items
+
+
 # ---------------------------------------------------------------------------
 # 对外接口
 # ---------------------------------------------------------------------------
-def corpus_fingerprint(documents: List[Dict]) -> str:
-    """语料指纹：语料一变，评测集就该重建（避免评测集与语料脱节）"""
+def corpus_fingerprint(documents: List[Dict], data_dir: str = "data") -> str:
+    """语料指纹：语料一变，评测集就该重建（避免评测集与语料脱节）
+
+    同时把评测侧文件 human_questions.json 纳入哈希：口语化问题集一旦改动，
+    评测集也应重建。
+    """
     import hashlib
 
     hasher = hashlib.sha256()
     for document in documents:
         hasher.update(str(document.get("source", "")).encode("utf-8"))
         hasher.update(document.get("content", "").encode("utf-8"))
+    human_path = Path(data_dir) / "human_questions.json"
+    if human_path.exists():
+        hasher.update(human_path.read_bytes())
     return hasher.hexdigest()[:16]
 
 
@@ -264,6 +318,7 @@ def build_dataset(data_dir: str = "data") -> Dict:
     items += _fault_case_layer(documents)
     items += _doc_layer(documents)
     items += _near_miss_layer(data_dir)
+    items += build_human_like_layer(data_dir)
 
     # 去重：同层同查询只留一条
     seen, unique = set(), []

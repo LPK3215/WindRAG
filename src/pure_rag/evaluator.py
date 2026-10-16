@@ -12,6 +12,7 @@
 
 import json
 import math
+import re
 import time
 from pathlib import Path
 from typing import Dict, List, Sequence
@@ -39,17 +40,29 @@ class Evaluator:
     # -- 分层评测（目标可以是文本签名，也可以是整篇文档） --------------------
     @staticmethod
     def _resolve_target(item) -> tuple:
-        """把评测条目归一化成 (查询, 目标文本, 目标文档)"""
+        """把评测条目归一化成 (查询, 目标文本, 目标文档, 目标部件, 目标故障)"""
         if isinstance(item, dict):
-            return item.get("query", ""), item.get("target_text"), item.get("target_doc")
+            return (item.get("query", ""), item.get("target_text"), item.get("target_doc"),
+                    item.get("target_component"), item.get("target_fault"))
         if isinstance(item, (tuple, list)):
-            return item[0], item[1] if len(item) > 1 else None, None
-        return item, None, None
+            return (item[0], item[1] if len(item) > 1 else None, None,
+                    item[2] if len(item) > 2 else None, item[3] if len(item) > 3 else None)
+        return item, None, None, None, None
+
+    @staticmethod
+    def _chunk_fields(content: str) -> Dict[str, str]:
+        """从工单块内容里取出部件 / 故障类型"""
+        out = {}
+        for label in ("部件", "故障类型"):
+            match = re.search(rf"{label}：(.+)", content)
+            if match:
+                out[label] = match.group(1).strip()
+        return out
 
     @staticmethod
     def rank_of_item(engine, item, ranked_ids: List[int]) -> int:
         """条目在给定检索结果里的排名（1 起，未命中 0）"""
-        _query, target_text, target_doc = Evaluator._resolve_target(item)
+        _query, target_text, target_doc, target_component, target_fault = Evaluator._resolve_target(item)
         target = normalize(target_text) if target_text else ""
         for rank, doc_id in enumerate(ranked_ids, 1):
             chunk = engine.chunks[doc_id]
@@ -59,6 +72,11 @@ class Evaluator:
                 metadata = chunk.get("metadata", {})
                 if (metadata.get("source") == target_doc.get("source")
                         and metadata.get("title") == target_doc.get("title")):
+                    return rank
+            # 口语化层：命中「同类工单」即算对（不限定某一条），按部件+故障类型匹配
+            if target_component and "故障ID：" in chunk["content"]:
+                fields = Evaluator._chunk_fields(chunk["content"])
+                if fields.get("部件") == target_component and fields.get("故障类型") == target_fault:
                     return rank
         return 0
 
@@ -169,7 +187,7 @@ class Evaluator:
         import platform
 
         from pure_rag import __version__
-        from pure_rag.datasets import ANSWER_LAYERS, LAYERS
+        from pure_rag.datasets import LAYERS
 
         stats = engine.stats()
         lines = [
@@ -193,7 +211,13 @@ class Evaluator:
             count = dataset.get("counts", {}).get(layer, 0)
             if not count:
                 continue
-            expect = "命中目标" if layer in ANSWER_LAYERS else "拒答"
+            bucket = layered["layers"].get(layer)
+            if bucket and bucket["answer_count"] and bucket["refuse_count"]:
+                expect = "命中目标 / 拒答"
+            elif bucket and bucket["answer_count"]:
+                expect = "命中目标"
+            else:
+                expect = "拒答"
             lines.append(f"| `{layer}` | {label} | {count} | {expect} |")
 
         lines += ["", "## 分层指标", "",
@@ -203,7 +227,8 @@ class Evaluator:
             bucket = layered["layers"].get(layer)
             if not bucket:
                 continue
-            if layer in ANSWER_LAYERS:
+            # 有可回答条目的层就显示召回（不再硬编码 ANSWER_LAYERS，便于混合层也正常呈现）
+            if bucket["answer_count"]:
                 lines.append(f"| {label} | {bucket['count']} | {bucket['recall']:.2%} "
                              f"| {bucket['mrr']:.4f} | {bucket['ndcg']:.4f} "
                              f"| {bucket['refusal_rate']:.2%} |")
@@ -256,6 +281,9 @@ class Evaluator:
             "`部件 --HAS_FAULT--> 故障` 归属关系校验：搭配不存在时直接拒答，"
             "并指出该故障实际属于哪个部件。",
             "- `negative_missing`（域内缺资料）同样只能被部分识别，这是覆盖率指标的固有边界。",
+            "- `human_like`（口语化查询）是本评测集唯一带「真人问法」性质的层：问题由人写下、"
+            "标注弱相关部件+故障，专门暴露合成评测高估可用率的盲区（详见 README「口语化查询验证」）。"
+            "它目前仍是自标注，应逐步替换为真实用户问法 + 相关性标注，但会一直作为常驻层存在。",
         ]
         return "\n".join(lines)
 
