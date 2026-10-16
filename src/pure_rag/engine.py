@@ -44,6 +44,10 @@ MMR_LAMBDA = 0.75
 # 分块默认参数
 DEFAULT_CHUNK_SIZE = 400
 DEFAULT_OVERLAP = 80
+# 拒答阈值：IDF 加权查询词覆盖率低于该值时判定为「知识库无相关内容」
+# 注意：它衡量的是「查询词在语料中的覆盖程度」，不是「语料里是否有答案」，
+# 因此对「域内但资料缺失」的问题并不敏感，实测标定见 README。
+DEFAULT_MIN_COVERAGE = 0.35
 
 
 class RAGEngine:
@@ -80,6 +84,7 @@ class RAGEngine:
         self.alpha_override = self.tuning.get("alpha_override")
         self.chunk_size = int(self.tuning.get("chunk_size", DEFAULT_CHUNK_SIZE))
         self.overlap = int(self.tuning.get("overlap", DEFAULT_OVERLAP))
+        self.min_coverage = float(self.tuning.get("min_coverage", DEFAULT_MIN_COVERAGE))
 
         self.generator = AnswerGenerator(self.tokenizer, llm_client=self._build_llm_client(use_llm))
         self._cache: Dict[tuple, Dict] = {}
@@ -125,6 +130,7 @@ class RAGEngine:
         self.expansion_weight = float(self.tuning.get("expansion_weight", EXPANSION_WEIGHT))
         self.use_expansion = bool(self.tuning.get("use_expansion", True))
         self.alpha_override = self.tuning.get("alpha_override")
+        self.min_coverage = float(self.tuning.get("min_coverage", DEFAULT_MIN_COVERAGE))
         self._cache.clear()
 
     def _apply_terms(self, terms: List[str]) -> None:
@@ -527,31 +533,125 @@ class RAGEngine:
         }
 
     # ------------------------------------------------------------------
+    # 置信度与拒答
+    # ------------------------------------------------------------------
+    def confidence(self, question: str, documents: List[Dict]) -> Dict:
+        """
+        评估检索结果对查询词的覆盖程度（IDF 加权）
+
+            coverage = Σ IDF(命中的查询词) / Σ IDF(全部查询词)
+
+        查询词只要在检索到的文档里出现过就算命中（含同义词别名），
+        因此 coverage 衡量的是「问题是否落在知识库的用词范围内」。
+
+        它**不**判断「资料里是否真的有答案」——域内但缺资料的问题（如询问具体价格、
+        某风场实际发电量）仍会被判为高覆盖，这是该指标的已知边界。
+        """
+        all_terms = self.tokenizer.cut(question)
+        if not all_terms:
+            return {"coverage": 0.0, "matched": [], "missing": [],
+                    "matched_content": [], "terms": []}
+
+        covered: set = set()
+        for document in documents:
+            doc_id = document.get("doc_id")
+            if isinstance(doc_id, int) and doc_id < len(self._token_lists):
+                covered.update(self._token_lists[doc_id])
+
+        total_idf = sum(self.tfidf.idf_of(term) for term in all_terms)
+        hit_idf = sum(self.tfidf.idf_of(term) for term in all_terms if term in covered)
+
+        return {
+            "coverage": round(hit_idf / total_idf, 4) if total_idf > 0 else 0.0,
+            "matched": list(dict.fromkeys(t for t in all_terms if t in covered)),
+            "missing": list(dict.fromkeys(t for t in all_terms if t not in covered)),
+            # 命中的多字词：单字命中不算数（「科幻电影」的「电」也能碰巧命中）
+            "matched_content": list(dict.fromkeys(
+                t for t in all_terms if len(t) >= 2 and t in covered)),
+            "terms": list(dict.fromkeys(all_terms)),
+        }
+
+    @staticmethod
+    def should_refuse(confidence: Dict, threshold: float) -> bool:
+        """
+        拒答判据（两条同时满足才回答）：
+
+        1. 至少命中一个多字词 —— 多字词才代表实词概念，避免靠单字巧合蒙混过关
+        2. IDF 加权覆盖率达标 —— 控制与知识库用词的整体重叠程度
+
+        threshold <= 0 表示完全关闭拒答（两条判据都跳过）。
+        """
+        if threshold <= 0:
+            return False
+        if not confidence.get("matched_content"):
+            return True
+        return confidence["coverage"] < threshold
+
+    def _refusal_answer(self, confidence: Dict, documents: List[Dict],
+                        threshold: float) -> str:
+        """拒答话术：说明判断依据，并给出最接近的资料供人工判断"""
+        lines = [
+            f"知识库中没有检索到足以回答该问题的资料"
+            f"（查询词覆盖率 {confidence['coverage']:.0%}，拒答阈值 {threshold:.0%}）。"
+        ]
+        if confidence.get("missing"):
+            lines.append("未覆盖到的关键词：" + "、".join(confidence["missing"][:6]))
+        if documents:
+            metadata = documents[0]["metadata"]
+            title = metadata.get("title") or metadata.get("source") or "未知来源"
+            lines.append(f"最接近的资料是「{title}」，但它未必能回答这个问题。")
+        lines.append("可以补充部件名称、故障现象或标准编号后重试。")
+        return "\n".join(lines)
+
+    # ------------------------------------------------------------------
     # 问答
     # ------------------------------------------------------------------
     def query(self, question: str, top_k: int = 3, method: str = "hybrid",
               alpha: float = None, use_kg: bool = True, use_rerank: bool = True,
-              history: List[Dict] = None, use_cache: bool = True) -> Dict:
+              history: List[Dict] = None, use_cache: bool = True,
+              min_coverage: float = None) -> Dict:
         """
-        完整问答：检索 + 生成
+        完整问答：检索 + 生成（含置信度评估与拒答）
 
         history: 多轮对话历史 [{"question":..., "answer":...}]，用于指代消解
+        min_coverage: 本次调用的拒答阈值，None 时使用引擎配置（min_coverage=0 可关闭拒答）
         """
         question = (question or "").strip()
         if not question:
-            return {"question": "", "answer": "请输入有效的问题。", "retrieved_docs": []}
+            return {
+                "question": "",
+                "answer": "请输入有效的问题。",
+                "mode": "empty",
+                "retrieved_docs": [],
+                "confidence": {"coverage": 0.0, "matched": [], "missing": [],
+                               "refused": False},
+            }
 
         resolved = self._resolve_coreference(question, history)
-        cache_key = (resolved, top_k, method, alpha, use_kg, use_rerank)
+        threshold = self.min_coverage if min_coverage is None else float(min_coverage)
+        cache_key = (resolved, top_k, method, alpha, use_kg, use_rerank, threshold)
         if use_cache and cache_key in self._cache:
             return dict(self._cache[cache_key])
 
         self.ensure_loaded()
         begin = time.time()
         retrieval = self.retrieve(resolved, top_k, method, alpha, use_kg, use_rerank)
-        generation = self.generator.generate(
-            resolved, retrieval["documents"], retrieval["kg_context"], self.tfidf.idf_of
-        )
+        confidence = self.confidence(resolved, retrieval["documents"])
+        confidence["threshold"] = round(threshold, 4)
+
+        if self.should_refuse(confidence, threshold):
+            # 覆盖率不足时直接拒答：不把弱相关文档包装成答案，也省下一次 LLM 调用
+            confidence["refused"] = True
+            generation = {
+                "answer": self._refusal_answer(confidence, retrieval["documents"], threshold),
+                "mode": "refused",
+                "citations": [],
+            }
+        else:
+            confidence["refused"] = False
+            generation = self.generator.generate(
+                resolved, retrieval["documents"], retrieval["kg_context"], self.tfidf.idf_of
+            )
 
         result = {
             "question": question,
@@ -560,6 +660,7 @@ class RAGEngine:
             "mode": generation["mode"],
             "retrieved_docs": retrieval["documents"],
             "citations": generation["citations"],
+            "confidence": confidence,
             "alpha": retrieval["alpha"],
             "kg_context": retrieval["kg_context"],
             "kg_entities": retrieval["kg_entities"],

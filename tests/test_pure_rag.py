@@ -473,6 +473,104 @@ class IncrementalAddTest(unittest.TestCase):
         self.assertNotIn("#", content)
 
 
+class ConfidenceTest(unittest.TestCase):
+    """置信度评估与拒答"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp_dir = tempfile.mkdtemp(prefix="pure_rag_confidence_")
+        cls.engine = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+                               index_dir=os.path.join(cls.tmp_dir, "index"),
+                               use_llm=False, use_kg=False)
+        cls.engine.build(verbose=False)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp_dir, ignore_errors=True)
+
+    def test_in_domain_query_answered(self):
+        result = self.engine.query("齿轮箱温度过高应该怎么处理？")
+        self.assertFalse(result["confidence"]["refused"])
+        self.assertGreaterEqual(result["confidence"]["coverage"], 0.8)
+        self.assertIn("齿轮箱", result["confidence"]["matched_content"])
+
+    def test_out_of_domain_query_refused(self):
+        result = self.engine.query("如何做红烧肉？")
+        self.assertTrue(result["confidence"]["refused"])
+        self.assertEqual(result["mode"], "refused")
+        self.assertIn("知识库", result["answer"])
+
+    def test_shared_word_query_still_refused(self):
+        # 与语料共有「天气」一词，靠「必须命中多字词 + 覆盖率」双判据拦住
+        result = self.engine.query("明天北京天气怎么样？")
+        self.assertTrue(result["confidence"]["refused"])
+
+    def test_threshold_zero_disables_refusal(self):
+        result = self.engine.query("如何做红烧肉？", min_coverage=0)
+        self.assertFalse(result["confidence"]["refused"])
+        self.assertNotEqual(result["mode"], "refused")
+
+    def test_coverage_reflects_relevance(self):
+        relevant = self.engine.query("偏航系统的作用是什么？")["confidence"]["coverage"]
+        irrelevant = self.engine.query("推荐几部科幻电影")["confidence"]["coverage"]
+        self.assertGreater(relevant, irrelevant)
+
+    def test_should_refuse_rules(self):
+        self.assertTrue(self.engine.should_refuse(
+            {"matched_content": [], "coverage": 1.0}, 0.35))
+        self.assertFalse(self.engine.should_refuse(
+            {"matched_content": ["齿轮箱"], "coverage": 1.0}, 0.35))
+        self.assertFalse(self.engine.should_refuse(
+            {"matched_content": [], "coverage": 0.0}, 0.0))
+
+    def test_refusal_message_mentions_coverage(self):
+        answer = self.engine.query("今晚吃什么好")["answer"]
+        self.assertIn("覆盖率", answer)
+
+
+class NegativeEvalTest(unittest.TestCase):
+    """拒答评测集与阈值标定"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp_dir = tempfile.mkdtemp(prefix="pure_rag_negative_")
+        cls.engine = RAGEngine(data_dir=os.path.join(ROOT, "data"),
+                               index_dir=os.path.join(cls.tmp_dir, "index"),
+                               use_llm=False, use_kg=False)
+        cls.engine.build(verbose=False)
+        cls.evaluator = Evaluator(os.path.join(ROOT, "data"))
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp_dir, ignore_errors=True)
+
+    def test_negative_set_well_formed(self):
+        negatives = self.evaluator.load_negatives()
+        self.assertGreaterEqual(len(negatives), 10)
+        for item in negatives:
+            self.assertTrue(item["query"].strip())
+            self.assertIn(item["type"], ("out_of_domain", "missing_in_kb"))
+
+    def test_evaluate_negatives_groups_by_type(self):
+        result = self.evaluator.evaluate_negatives(self.engine)
+        self.assertEqual(result["count"], len(self.evaluator.load_negatives()))
+        self.assertIn("out_of_domain", result["by_type"])
+        self.assertGreaterEqual(result["by_type"]["out_of_domain"]["refusal_rate"], 0.8)
+
+    def test_calibration_is_monotonic(self):
+        rows = self.evaluator.calibrate_threshold(self.engine,
+                                                  thresholds=(0.0, 0.35, 0.9))
+        refusal_rates = [row["negative_refusal_rate"] for row in rows]
+        self.assertEqual(refusal_rates, sorted(refusal_rates))
+        self.assertLessEqual(rows[-1]["answer_rate"], rows[0]["answer_rate"])
+
+    def test_engine_confidence_is_public_api(self):
+        retrieval = self.engine.retrieve("齿轮箱温度过高", top_k=2)
+        confidence = self.engine.confidence("齿轮箱温度过高", retrieval["documents"])
+        self.assertIn("matched_content", confidence)
+        self.assertIn("missing", confidence)
+
+
 class TranscriptTest(unittest.TestCase):
     """会话记录导出"""
 

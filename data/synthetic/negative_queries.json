@@ -1,0 +1,25 @@
+{
+  "description": "拒答评测集：这些问题在知识库中找不到答案，用于检验系统会不会硬答（幻觉/凑答案）",
+  "type_legend": {
+    "out_of_domain": "与风电无关的问题，期望系统拒答",
+    "missing_in_kb": "风电域内但知识库没有相应资料的问题，期望系统拒答（当前机制只能部分识别，用于暴露边界）"
+  },
+  "negative_queries": [
+    {"query": "如何做红烧肉？", "type": "out_of_domain", "note": "完全域外"},
+    {"query": "明天北京天气怎么样？", "type": "out_of_domain", "note": "域外，且与语料共有「天气」一词，考察多字词判据"},
+    {"query": "请帮我写一段 Python 快排", "type": "out_of_domain", "note": "编程问题"},
+    {"query": "推荐几部科幻电影", "type": "out_of_domain", "note": "纯口语，无实词概念命中"},
+    {"query": "股票今天涨了吗？", "type": "out_of_domain", "note": "金融问题"},
+    {"query": "怎么申请信用卡？", "type": "out_of_domain", "note": "生活事务"},
+    {"query": "今晚吃什么好", "type": "out_of_domain", "note": "闲聊"},
+    {"query": "帮我订一张去上海的机票", "type": "out_of_domain", "note": "跑腿类请求"},
+    {"query": "介绍一本好看的小说", "type": "out_of_domain", "note": "娱乐推荐"},
+    {"query": "这首歌叫什么名字", "type": "out_of_domain", "note": "音乐识别"},
+    {"query": "齿轮箱市面上的采购价格是多少？", "type": "missing_in_kb", "note": "命中齿轮箱，但语料无价格信息"},
+    {"query": "2024 年某风场的实际发电量是多少？", "type": "missing_in_kb", "note": "命中发电量，但语料无运行数据"},
+    {"query": "风电机组的质保期是几年？", "type": "missing_in_kb", "note": "语料无商务条款"},
+    {"query": "塔筒的高度是多少米？", "type": "missing_in_kb", "note": "语料无具体型号尺寸"},
+    {"query": "如何联系设备厂家售后？", "type": "missing_in_kb", "note": "语料无联系方式"},
+    {"query": "变桨系统的轴承型号是什么？", "type": "missing_in_kb", "note": "语料无备件型号清单"}
+  ]
+}

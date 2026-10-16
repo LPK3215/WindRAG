@@ -1,0 +1,30 @@
+# WindRAG 持续集成
+#
+# 纯 Python 检索内核零第三方依赖，所以这里直接用官方 python 镜像跑测试与评测，
+# 不装 requirements.txt（那是研究版才需要的重依赖）。
+#
+# 覆盖范围：
+#   - PR 门禁：PR 创建/更新、源分支 push  → tests + 评测（含鲁棒性与拒答）
+#   - main 回归：合并后确认主干仍然可用
+# 只有 PR 分支会由 PR 事件触发，因此不再给兜底分支单独配 push，避免同一次推送跑两遍。
+
+# 复用的执行流程：单元测试 → 构建索引 → 评测（Recall 门禁 0.9）
+.check-stages: &check-stages
+  docker:
+    image: python:3.11-slim
+  stages:
+    - name: 单元测试
+      script: python -m unittest tests.test_pure_rag -v
+    - name: 构建索引与检索评测
+      script: |
+        python src/rag_cli.py build
+        python src/rag_cli.py eval -n 15 --robust --negative --no-save --min-recall 0.9
+
+main:
+  pull_request:
+    - name: pr-check
+      <<: *check-stages
+
+  push:
+    - name: main-check
+      <<: *check-stages

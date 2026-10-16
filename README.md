@@ -135,6 +135,8 @@ $$S_{hybrid}(q, d) = \alpha \cdot \hat{S}_{vec}(q, d) + (1-\alpha) \cdot \hat{S}
 | 打分明细 | 无 | `explain` 展示每个查询词对 BM25 / TF-IDF 得分的贡献 |
 | 参数调优 | 手工 | `tune` 网格搜索分块与融合参数并落盘生效 |
 | 对话记录 | 无 | `chat` 的 `/save` 或 `--log` 导出带来源的 Markdown 记录 |
+| 拒答 | 无 | 置信度不足时明确回「知识库没有相关资料」，阈值可标定（`eval --negative`） |
+| 持续集成 | 无 | `.cnb.yml`：PR 与 main 自动跑单测 + 评测，Recall 低于 0.9 直接失败 |
 | Web 界面 | Gradio | `http.server` 单页应用 |
 | 第三方依赖 | 10+ 个包 | **0 个** |
 
@@ -147,6 +149,8 @@ python src/rag_cli.py ask "齿轮箱温度过高应该怎么处理？" --show-do
 python src/rag_cli.py chat --log                   # 交互式多轮问答，退出时自动导出记录
 python src/rag_cli.py explain "变速箱异响怎么排查？"  # 查看逐词打分明细
 python src/rag_cli.py eval -n 15 --robust          # 自召回 + 改写查询鲁棒性评测
+python src/rag_cli.py eval --negative              # 拒答能力评测 + 阈值标定表
+python src/rag_cli.py --min-coverage 0 ask "..."   # 临时关闭拒答（默认阈值 0.35）
 python src/rag_cli.py tune --quick                 # 网格搜索最优参数（去掉 --quick 为完整网格）
 python src/rag_cli.py stats                        # 索引统计
 python src/rag_cli.py serve --port 8000            # 零依赖 Web 界面
@@ -171,7 +175,7 @@ for doc in result["retrieved_docs"]:
 测试与索引文件：
 
 ```bash
-python -m unittest tests.test_pure_rag -v     # 59 项单元测试
+python -m unittest tests.test_pure_rag -v     # 70 项单元测试
 ```
 `data/pure_index/` 下为 `documents.json`（分块）、`tokens.json`（词序列缓存）、`bm25.json`、
 `tfidf.json`、`meta.json`、`tuning.json`，全部可重新生成，已加入 `.gitignore`。
@@ -185,12 +189,22 @@ python -m unittest tests.test_pure_rag -v     # 59 项单元测试
 | Recall@3（同义词/关键词改写查询） | **100%** |
 | MRR / nDCG@3（改写查询） | 0.9333 / 0.9508 |
 | 答案领域术语覆盖率 | 70.07% |
+| 拒答率（16 条答不了的问题） | 68.75% |
+| └ 域外问题 | **100%**（10/10） |
+| └ 域内缺资料问题 | 16.67%（1/6，见下方已知边界） |
 | 平均检索耗时（含高亮定位） | 0.5 ms |
 | 索引构建耗时 | 0.06 s |
-| 单元测试 | 59 项全部通过 |
+| 单元测试 | 70 项全部通过 |
 
 > 评测口径：`src/pure_rag/evaluator.py` 用 QA 对的问题检索包含该 QA 对的文档块（自召回），
 > 再把问题改写为同义词表达（齿轮箱 → 变速箱、桨叶、刹车）或关键词查询后重测，无需人工标注即可复现。
+>
+> **拒答的已知边界**：判据是「IDF 加权查询词覆盖率 + 至少命中一个多字词」，
+> 衡量的是*问题是否落在知识库的用词范围内*，而不是*资料里是否真的有答案*。
+> 因此「域外问题」能稳定拒答（100%），而「域内但缺资料」（问价格、某风场实际发电量、
+> 备件型号）仍会被回答——`eval --negative` 按类型分组输出，就是为了把这个边界显式暴露出来。
+> 若要让系统更保守，可把阈值调高：标定表显示 0.5 时域外拒答率可达 81%，但实测会误拒
+> 「齿轮箱异响」这类短查询（该查询覆盖率为 0.445），故默认取 0.35。
 
 ### 核心实现
 
@@ -204,6 +218,7 @@ python -m unittest tests.test_pure_rag -v     # 59 项单元测试
 - **答案生成**：句子级 IDF 加权打分 + 结构化字段加成 + 近似去重 + 相关性下限过滤，输出带来源标注的要点
 - **命中高亮**：逐字符归一化（长度不变）后用 `str.find` 定位，得到可映射回原文的字符区间，再渲染成 ANSI / `<mark>` / Markdown 三种载体
 - **增量追加**：词序列随索引持久化，新增文档只需分块分词自己，再重建 BM25/TF-IDF 的统计结构（IDF 依赖全局 df，无法局部更新）
+- **置信度与拒答**：`coverage = Σ IDF(命中的查询词) / Σ IDF(全部查询词)`；命中需至少含一个多字词（单字会靠「科幻电影」的「电」蒙混过关），覆盖率不足即拒答并回退到「知识库没有相关资料」，同时省下这次 LLM 调用
 - **可解释性**：`explain` 输出每个查询词在两路召回上的独立贡献，便于定位"为什么这篇文档排第一"
 - **参数调优**：`tune` 在自召回 + 改写查询两组指标上做网格搜索，结果写入 `tuning.json` 并自动生效
 
@@ -315,10 +330,11 @@ WindRAG/
 │       ├── engine.py             # RAGEngine 主引擎（含增量追加）
 │       └── cli.py                # 命令行子命令
 ├── tests/
-│   └── test_pure_rag.py          # 纯 Python 内核单元测试（59 项）
+│   └── test_pure_rag.py          # 纯 Python 内核单元测试（70 项）
+├── .cnb.yml                      # 持续集成：PR 与 main 自动跑单测 + 评测门禁
 ├── data/                         # 数据目录
 │   ├── raw/                      # 原始数据
-│   ├── synthetic/                # 合成数据
+│   ├── synthetic/                # 合成数据 + 拒答评测集（negative_queries.json）
 │   ├── user_docs/                # 自有文档（txt/md/json/csv/docx，自动纳入索引）
 │   ├── processed/                # 处理后数据+索引（研究版）
 │   └── pure_index/               # 纯 Python 版索引 + 调优参数（可重新生成）

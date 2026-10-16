@@ -63,12 +63,15 @@ def save_transcript(history, name: str = "", data_dir: str = "data") -> str:
 
 def create_engine(args) -> RAGEngine:
     """按命令行参数创建引擎"""
-    return RAGEngine(
+    engine = RAGEngine(
         data_dir=args.data_dir,
         index_dir=args.index_dir,
         use_kg=not args.no_kg,
         use_llm=(False if args.no_llm else None),
     )
+    if getattr(args, "min_coverage", None) is not None:
+        engine.min_coverage = float(args.min_coverage)
+    return engine
 
 
 # ----------------------------------------------------------------------
@@ -99,7 +102,10 @@ def cmd_ask(args) -> int:
     print("\n" + "=" * 70)
     print(f"问题：{result['question']}")
     print("=" * 70)
-    print(f"答案（{result['mode']} 生成 | α={result['alpha']:.3f} | "
+    confidence = result["confidence"]
+    label = "拒答" if result["mode"] == "refused" else f"{result['mode']} 生成"
+    print(f"答案（{label} | α={result['alpha']:.3f} | "
+          f"覆盖率 {confidence['coverage']:.0%} | "
           f"{result['timings']['total'] * 1000:.1f} ms）：")
     print(result["answer"])
 
@@ -187,7 +193,8 @@ def cmd_chat(args) -> int:
         result = engine.query(question, top_k=args.top_k, method=args.method,
                               alpha=args.alpha, history=history)
         print(f"\n助手 > {result['answer']}")
-        print(f"\n(α={result['alpha']:.3f} | {result['timings']['total'] * 1000:.0f} ms | "
+        print(f"\n(α={result['alpha']:.3f} | 覆盖率 {result['confidence']['coverage']:.0%} | "
+              f"{result['timings']['total'] * 1000:.0f} ms | "
               f"参考文档 {len(result['retrieved_docs'])} 篇)")
 
         if args.show_docs:
@@ -207,10 +214,19 @@ def cmd_eval(args) -> int:
     engine = create_engine(args)
     evaluator = Evaluator(args.data_dir)
     result = evaluator.evaluate(engine, num_questions=args.num, top_k=args.top_k,
-                               method=args.method, robust=args.robust)
+                               method=args.method, robust=args.robust,
+                               negative=args.negative)
     evaluator.print_summary(result)
     if not args.no_save:
         evaluator.save_report(result)
+
+    # 质量门禁：供 CI 使用，指标不达标时以非零退出码结束
+    if args.min_recall is not None:
+        recall = result["metrics"]["recall_at_k"]
+        if recall < args.min_recall:
+            print(f"\n[gate] Recall@{args.top_k} = {recall:.2%} < 要求 {args.min_recall:.2%}，构建失败")
+            return 1
+        print(f"\n[gate] Recall@{args.top_k} = {recall:.2%} ≥ 要求 {args.min_recall:.2%}，通过")
     return 0
 
 
@@ -283,6 +299,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-kg", action="store_true", help="关闭知识图谱增强")
     parser.add_argument("--no-llm", action="store_true", help="强制使用抽取式生成")
     parser.add_argument("--no-color", action="store_true", help="关闭终端高亮")
+    parser.add_argument("--min-coverage", type=float, default=None,
+                        help="拒答阈值：查询词覆盖率低于该值时拒答（默认 0.35，0 为关闭）")
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -323,6 +341,10 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("-m", "--method", choices=METHODS, default="hybrid")
     evaluate.add_argument("--robust", action="store_true",
                           help="额外评测同义词/关键词改写查询的鲁棒性")
+    evaluate.add_argument("--negative", action="store_true",
+                          help="额外评测拒答能力与拒答阈值标定")
+    evaluate.add_argument("--min-recall", type=float, default=None,
+                          help="质量门禁：Recall@k 低于该值时以非零退出码结束")
     evaluate.add_argument("--no-save", action="store_true", help="不保存报告文件")
     evaluate.set_defaults(func=cmd_eval)
 
