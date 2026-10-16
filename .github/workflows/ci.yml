@@ -17,18 +17,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      # Mirror the .cnb.yml gate exactly: regenerate the scaled corpus and index,
-      # run the eval Recall gate, then verify README figures match the real sources
-      # for both editions. Fresh clones have no committed data/pure_index (gitignored),
-      # so simulate_corpus + build + eval --report must run before the facts check.
-      - name: Unit tests
-        run: python -m unittest tests.test_pure_rag -v
-      - name: Build index and eval gate
-        run: |
-          python src/simulate_corpus.py
-          python src/rag_cli.py build
-          python src/rag_cli.py eval --report --min-recall 0.9
-      - name: README figures consistency
-        run: |
-          python src/gen_readme_facts.py --check
-          python src/gen_readme_facts.py --check --readme README.zh-CN.md
+      # The Node gate reads pipeline.config.json and runs the same sequence used
+      # by local verification: corpus generation, build, eval, ablation, and all
+      # generated documentation checks.
+      - name: Release gate
+        run: node scripts/verify.mjs

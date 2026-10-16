@@ -21,21 +21,28 @@
     }
   ],
 
-  "_releaseNote": "The README measured-figures block and docs/assets/banner.svg are GENERATED from __version__ (single-source rule: never hand-written). release.mjs bumps __version__ only; after a release run `make facts` (gen_readme_facts for both READMEs + generate_banner) and commit the follow-up, otherwise the ci.yml facts --check will flag the one-commit drift. publish.yml is text-only and is not affected by that drift.",
+  "_releaseNote": "The README measured-figures block, docs/assets/banner.svg, and docs/project_overview/overview-data.js are generated from the real sources (single-source rule: never hand-written). release.mjs bumps __version__ only; after a release run `make facts` and commit the generated follow-up, otherwise CI checks will flag the drift. publish.yml is text-only and is not affected by that drift.",
 
   "verify": [
     { "name": "unit tests", "cmd": "python -m unittest tests.test_pure_rag" },
+    { "name": "generate corpus", "cmd": "python src/simulate_corpus.py" },
     { "name": "build index", "cmd": "python src/rag_cli.py build" },
+    { "name": "eval gate", "cmd": "python src/rag_cli.py eval --report --min-recall 0.9" },
+    { "name": "ablation report", "cmd": "python src/rag_cli.py ablation" },
     { "name": "readme facts en", "cmd": "python src/gen_readme_facts.py --check" },
-    { "name": "readme facts zh", "cmd": "python src/gen_readme_facts.py --check --readme README.zh-CN.md" }
+    { "name": "readme facts zh", "cmd": "python src/gen_readme_facts.py --check --readme README.zh-CN.md" },
+    { "name": "banner asset", "cmd": "python scripts/visualization/generate_banner.py --check" },
+    { "name": "overview data", "cmd": "python scripts/visualization/generate_overview.py --check" }
   ],
 
   "precommit": [
     { "name": "readme facts en", "cmd": "python src/gen_readme_facts.py --check" },
-    { "name": "readme facts zh", "cmd": "python src/gen_readme_facts.py --check --readme README.zh-CN.md" }
+    { "name": "readme facts zh", "cmd": "python src/gen_readme_facts.py --check --readme README.zh-CN.md" },
+    { "name": "banner asset", "cmd": "python scripts/visualization/generate_banner.py --check" },
+    { "name": "overview data", "cmd": "python scripts/visualization/generate_overview.py --check" }
   ],
 
-  "_localPublish": "Text-only release: empty steps and artifacts means publish-local.mjs only creates/updates the GitHub Release for the tag with notes, attaching no files. The version lives in a regex file (__init__.py), not json/toml, so resolveTag cannot derive it - pass --tag explicitly: `node scripts/publish-local.mjs --tag v1.0.0`.",
+  "_localPublish": "Text-only release: empty steps and artifacts means publish-local.mjs only creates/updates the GitHub Release for the tag with notes, attaching no files. The version lives in a regex file (__init__.py), not json/toml, so resolveTag cannot derive it - pass --tag explicitly: `node scripts/publish-local.mjs --tag v<version>`.",
   "localPublish": {
     "steps": [],
     "artifacts": []
@@ -49,7 +56,7 @@
       "owner": "LPK-Gitee",
       "repo": "WindRAG",
       "tokenEnv": "GITEE_TOKEN",
-      "targetBranch": "master"
+      "targetBranch": "main"
     },
     "cnb": {
       "remote": "cnb",

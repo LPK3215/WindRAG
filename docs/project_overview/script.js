@@ -73,6 +73,38 @@
     if (el) sectionObserver.observe(el);
   });
 
+  /* ---------- generated overview facts ---------- */
+  var overviewData = window.WD_OVERVIEW_DATA;
+  if (!overviewData) throw new Error("overview-data.js must load before script.js");
+
+  function applyOverviewData() {
+    document.querySelectorAll("[data-overview]").forEach(function (el) {
+      var key = el.getAttribute("data-overview");
+      if (!Object.prototype.hasOwnProperty.call(overviewData, key)) {
+        throw new Error("Missing overview value: " + key);
+      }
+      var value = overviewData[key];
+      var format = el.getAttribute("data-overview-format") || "text";
+      var decimals = parseInt(el.getAttribute("data-decimals") || "0", 10);
+      if (format === "version") {
+        el.textContent = "v" + value;
+      } else if (format === "percent") {
+        var percent = Number(value) * 100;
+        if (el.classList.contains("num")) {
+          el.setAttribute("data-count", String(percent));
+          el.setAttribute("data-suffix", "%");
+        } else {
+          el.textContent = percent.toFixed(decimals) + "%";
+        }
+      } else if (el.classList.contains("num")) {
+        el.setAttribute("data-count", String(value));
+      } else {
+        el.textContent = String(value);
+      }
+    });
+  }
+  applyOverviewData();
+
   /* ---------- number count-up animation ---------- */
   function animateNum(el) {
     var target = parseFloat(el.getAttribute("data-count"));

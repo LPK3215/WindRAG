@@ -72,7 +72,7 @@
 - `loader.py`、`chunker.py`：仅服务 build，已合并进 `store` 节点的"经 loader/chunker 进入 build 路径"，不单独成点（合并内容已在此说明，非笼统"其它"）。
 - 遗留重依赖研究版 `run_rag.py`、`build_index.py`、`gradio_app.py`、`adaptive_fusion.py`、`query_features.py`、`evaluation.py`、`system_validation.py`、`ablation_experiment.py`、`generate_images.py`：AGENTS 约定只作对照、不进主线，不画。
 - `simulate_corpus.py`、`gen_readme_facts.py`：测试语料生成与文档数字生成脚本，属工具产物，不画。
-- README / `paper/main.tex` 中的自适应 α 公式表、消融负面结果表、口语化验证结论、四层架构宣传图、知识图谱 162 节点统计：是文档叙事与实验结论，不是系统结构组件，不画。
+- README / `paper/main.tex` 中的自适应 α 公式表、消融负面结果表、口语化验证结论、四层架构宣传图、知识图谱规模统计：是文档叙事与实验结论，不是系统结构组件，不画。
 - `data/processed/`、`data/adaptive_model/`、`data/raw/`：遗留向量索引与训练产物，与纯标准库主线无关，不画。
 
 ## 待确认清单（材料不足以判断，≤5 条，含默认处理）

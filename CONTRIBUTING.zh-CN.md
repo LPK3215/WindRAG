@@ -34,10 +34,13 @@
 
 ```bash
 python -m unittest tests.test_pure_rag -v        # 单元测试
-python src/rag_cli.py build                      # 索引能正常构建
-python src/rag_cli.py eval -n 15 --robust --negative --no-save --min-recall 0.9
+python src/simulate_corpus.py                   # 重新生成确定性语料
+python src/rag_cli.py build                     # 索引能正常构建
+python src/rag_cli.py eval --report --min-recall 0.9
+python src/rag_cli.py ablation                  # 刷新全景页数据源报告
 python src/gen_readme_facts.py --check           # README 实测块与真源一致
 python src/gen_readme_facts.py --check --readme README.zh-CN.md
+python scripts/visualization/generate_overview.py --check
 ```
 
 以上与 `.cnb.yml` 流水线一致，推送到 `main` 后会由流水线自动再验证一遍。
@@ -53,4 +56,4 @@ python src/gen_readme_facts.py --check --readme README.zh-CN.md
 
 ## 文档数字
 
-语料篇数、分块数、词表规模、评测条数、指标、测试项数一律不得手写，须由 `python src/gen_readme_facts.py` 从真源生成（校验漂移用 `--check`）；语料变化后同步刷新文档。
+语料篇数、分块数、词表规模、评测条数、指标、测试项数一律不得手写，README 用 `python src/gen_readme_facts.py`、全景页用 `python scripts/visualization/generate_overview.py` 从真源生成（校验漂移都用 `--check`）；语料变化后同步刷新文档。

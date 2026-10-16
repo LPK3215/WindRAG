@@ -9,7 +9,7 @@ Purpose:
 
 Data source (read at runtime, never hard-coded):
     - pure_rag.__version__                     kernel version
-    - unittest discovery under tests/          test count
+    - unittest discovery of tests/test_pure_rag.py  test count
     - data/pure_index/meta.json                corpus docs / chunks
     - data/pure_index/report.json              vocabulary + answer-layer Recall@3
     Regenerate the report first if needed: `python src/rag_cli.py eval --report`
@@ -18,11 +18,13 @@ Dependencies: Python 3.10+ standard library only (json, pathlib, sys, unittest).
 
 Run:
     python scripts/visualization/generate_banner.py
+    python scripts/visualization/generate_banner.py --check
 
 Output:
     docs/assets/banner.svg
 """
 
+import argparse
 import json
 import sys
 import unittest
@@ -58,7 +60,9 @@ def collect_stats() -> dict:
     meta = _load_json(ROOT / "data" / "pure_index" / "meta.json")
     report = _load_json(ROOT / "data" / "pure_index" / "report.json")
 
-    suite = unittest.TestLoader().discover(str(ROOT / "tests"), pattern="test_*.py")
+    suite = unittest.TestLoader().discover(
+        str(ROOT / "tests"), pattern="test_pure_rag.py", top_level_dir=str(ROOT)
+    )
     layers = report["layers"]["layers"]
     answers = sum(b["answer_count"] for n, b in layers.items() if n in ANSWER_LAYERS) or 1
     hits = sum(b["hits"] for n, b in layers.items() if n in ANSWER_LAYERS)
@@ -130,11 +134,25 @@ def render(stats: dict) -> str:
     )
 
 
-def main() -> int:
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description="Generate or check the project banner")
+    parser.add_argument("--check", action="store_true", help="fail when the generated banner drifts")
+    args = parser.parse_args(argv)
+
     out_dir = ROOT / "docs" / "assets"
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / "banner.svg"
-    out.write_text(render(collect_stats()), encoding="utf-8")
+    expected = render(collect_stats())
+    if args.check:
+        if not out.exists():
+            print(f"[banner] missing generated asset {out}")
+            return 1
+        if out.read_text(encoding="utf-8") == expected:
+            print("[banner] generated asset matches the real sources")
+            return 0
+        print("[banner] generated asset drifted; run `python scripts/visualization/generate_banner.py`")
+        return 1
+    out.write_text(expected, encoding="utf-8")
     print(f"[banner] wrote {out}")
     return 0
 

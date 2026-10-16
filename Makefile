@@ -7,13 +7,13 @@ NODE ?= node
 PORT ?= 8000
 Q ?= gearbox overheating handling
 
-.PHONY: help corpus build ask chat explain stats serve eval eval-report eval-negative robust tune ablation test facts check clean verify release publish-local mirror-sync
+.PHONY: help corpus build ask chat explain stats serve eval eval-report eval-negative robust tune ablation test overview facts check clean verify release publish-local mirror-sync
 
 help: ## Show this help
 	@echo "WindRAG targets:"; \
 	grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
 
-corpus: ## Generate the deterministic scaled test corpus (65 -> 1269 docs)
+corpus: ## Generate the deterministic scaled test corpus
 	$(PY) src/simulate_corpus.py
 
 build: ## Build the index (tokenize + BM25 + TF-IDF + new-word discovery)
@@ -55,14 +55,20 @@ ablation: ## Ablation table across modules
 test: ## Run the unit test suite
 	$(PY) -m unittest tests.test_pure_rag -v
 
-facts: ## Regenerate README figures (both editions) + banner from real sources
+overview: ## Regenerate project overview data from real sources
+	$(PY) scripts/visualization/generate_overview.py
+
+facts: ## Regenerate README figures, overview data and banner from real sources
 	$(PY) src/gen_readme_facts.py
 	$(PY) src/gen_readme_facts.py --readme README.zh-CN.md
-	$(NODE) scripts/visualization/generate_banner.py
+	$(PY) scripts/visualization/generate_overview.py
+	$(PY) scripts/visualization/generate_banner.py
 
-check: ## Verify README figures have not drifted from the real sources
+check: ## Verify generated README and overview assets have not drifted
 	$(PY) src/gen_readme_facts.py --check
 	$(PY) src/gen_readme_facts.py --check --readme README.zh-CN.md
+	$(PY) scripts/visualization/generate_banner.py --check
+	$(PY) scripts/visualization/generate_overview.py --check
 
 clean: ## Remove regenerable index artifacts (data/pure_index, generated corpus)
 	rm -rf data/pure_index/*.json data/pure_index/*.npy data/generated/*

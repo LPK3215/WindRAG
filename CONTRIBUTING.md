@@ -33,13 +33,16 @@ Keep the subject under 50 characters and say only what changed; put the "why and
 
 ```bash
 python -m unittest tests.test_pure_rag -v        # unit tests
-python src/rag_cli.py build                      # index builds cleanly
-python src/rag_cli.py eval -n 15 --robust --negative --no-save --min-recall 0.9
+python src/simulate_corpus.py                   # regenerate the deterministic corpus
+python src/rag_cli.py build                     # index builds cleanly
+python src/rag_cli.py eval --report --min-recall 0.9
+python src/rag_cli.py ablation                  # refresh the overview source report
 python src/gen_readme_facts.py --check           # README figures match the real sources
 python src/gen_readme_facts.py --check --readme README.zh-CN.md
+python scripts/visualization/generate_overview.py --check
 ```
 
-These mirror the `.cnb.yml` pipeline, which re-runs unit tests, evaluation, and the documentation-consistency gate on every push to `main`.
+These mirror the `.cnb.yml` pipeline, which re-runs corpus generation, unit tests, evaluation, ablation, and the generated-documentation gate on every push to `main`.
 
 ## Code style
 
@@ -51,4 +54,4 @@ These mirror the `.cnb.yml` pipeline, which re-runs unit tests, evaluation, and 
 
 ## Documentation numbers
 
-Corpus size, chunk counts, vocabulary, eval-item counts, metrics, and test counts must never be hand-written. Generate them from the real sources with `python src/gen_readme_facts.py` (use `--check` to detect drift); after the corpus changes, refresh the docs.
+Corpus size, chunk counts, vocabulary, eval-item counts, metrics, and test counts must never be hand-written. Generate README values with `python src/gen_readme_facts.py` and dashboard values with `python scripts/visualization/generate_overview.py` (use each command's `--check` mode to detect drift); after the corpus changes, refresh the docs.

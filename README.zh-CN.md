@@ -128,7 +128,7 @@ GET  /api/stats          索引与模型状态
 | 口语化层 Recall@3 | 58.00%（53 条） | 同上 |
 | 近邻负例拒答 | 100.00% | 同上 |
 | 域外问题拒答 | 100.00% | 同上 |
-| 单元测试 | 110 项 | `python -m unittest tests.test_pure_rag` |
+| 单元测试 | 109 项 | `python -m unittest tests.test_pure_rag` |
 
 <!-- END AUTO:FACTS -->
 
@@ -136,8 +136,8 @@ GET  /api/stats          索引与模型状态
 
 评测集由语料自动推导、确定性构建，无需人工标注（`python src/rag_cli.py eval --report` 生成 `data/pure_index/report.md`）。但要把话说清楚：
 
-- **合成评测的高分有水分**。合成查询从文档字段派生，与答案共享风场名 / 机组号 / 故障名这些稀有词，等于"报答案找文档"，所以回答层能到 97.62%。用 `data/human_questions.json` 里人写的口语化提问（只描述现象、省略部件名）测，真实可用率掉到 50~68%。差距不在调参，在于缺少真语义表示——本内核的"向量"通道只是 TF-IDF，跨不过"嗡嗡响 vs 异响""发烫限电 vs 绕组温度 130℃"这类词汇鸿沟。复现：`python src/pure_rag/human_eval.py`（确定性）。
-- **规模会推翻小语料结论**。同一套代码在 65 篇上是"回答层 100%、模块只增不减"，在 1269 篇上仅 BM25 反而超过完整配置。查询扩展在多路召回 RRF 合并后稀释了精确匹配，已改为默认关闭。逐项开关见 `python src/rag_cli.py ablation`（含固定 alpha 扫描与负面结果，如实记录）。
+- **合成评测的高分有水分**。合成查询从文档字段派生，与答案共享风场名 / 机组号 / 故障名这些稀有词，等于"报答案找文档"，所以回答层明显高于上面实测数据块里的口语化层。用 `data/human_questions.json` 里人写的口语化提问（只描述现象、省略部件名）测，真实可用率更低。差距不在调参，在于缺少真语义表示——本内核的"向量"通道只是 TF-IDF，跨不过"嗡嗡响 vs 异响""发烫限电 vs 绕组温度"这类词汇鸿沟。复现：`python src/pure_rag/human_eval.py`（确定性）。
+- **规模会推翻小语料结论**。同一套代码在小型 fixture 与规模化语料上的结论不同：当前规模化报告里仅 BM25 反而超过完整配置。查询扩展在多路召回 RRF 合并后稀释了精确匹配，已改为默认关闭。逐项开关见 `python src/rag_cli.py ablation`（含固定 alpha 扫描与负面结果，如实记录）。
 - **拒答有两判据**：一是 IDF 加权查询词覆盖率（拦域外问题，实测 100%），二是知识图谱的部件×故障组合校验（拦"偏航系统制动器失效"这类词都对但不存在的伪问题，并把该故障实际所属部件指出）。
 - **仍在的边界**：域内缺资料（问价格、某风场实际发电量、备件型号）覆盖率满、组合也成立，只是资料里没这条信息，当前判据识别不了。
 
@@ -202,14 +202,17 @@ data/
 tests/test_pure_rag.py    # 纯 Python 内核单元测试
 scripts/
 ├── verify.mjs / release.mjs / publish-local.mjs / mirror-sync.mjs   # 发布流水线（Node 工具；主线运行时仍是纯 Python）
-└── visualization/        # README 可视化资产生成脚本（仅标准库）
-    └── generate_banner.py # 从真源生成 docs/assets/banner.svg
+└── visualization/        # README 与全景页资产生成脚本（仅标准库）
+    ├── generate_banner.py   # 从真源生成 docs/assets/banner.svg
+    └── generate_overview.py # 从报告生成 docs/project_overview/overview-data.js
 docs/
 ├── index.html            # GitHub Pages 入口 -> project_overview
 ├── project_overview/     # 交互式项目全景观览页
+│   └── overview-data.js   # 从报告生成的全景页数据
 ├── assets/banner.svg     # 生成的横幅图（图内文字全英文）
+├── project-analysis.md    # 架构与实测核对记录
 └── archify/              # 交互式 架构 / 主流程 / 时序 / 数据流 HTML
-.cnb.yml                  # 持续集成：单测 + 评测门禁 + README 实测数据一致性
+.cnb.yml                  # 持续集成：单测 + 评测门禁 + 文档资产一致性
 .github/workflows/        # ci.yml（PR 门禁）+ publish.yml（打 tag 出纯文本 Release）
 .github/ISSUE_TEMPLATE/   # issue 与 PR 模板
 hooks/                    # 提交前快门禁；启用一次：git config core.hooksPath hooks
@@ -224,10 +227,12 @@ CHANGELOG.md / FAQ.md / SECURITY.md / AUTHORS / LICENSE
 复现本文评测所依据的规模化语料与指标：
 
 ```bash
-python src/simulate_corpus.py        # 确定性生成测试语料（65 篇 → 1269 篇）
+python src/simulate_corpus.py        # 确定性生成规模化测试语料
 python src/rag_cli.py build
 python src/rag_cli.py eval --report
-python src/gen_readme_facts.py       # 刷新上面的"当前实测数据"块
+python src/rag_cli.py ablation
+python src/gen_readme_facts.py       # 刷新 README 实测数据块
+python scripts/visualization/generate_overview.py # 刷新全景页数据
 ```
 
 > 语料保真度说明：风场名取自公开数据集 OpenWindSCADA 收录的真实场站，机型用真实型号命名，部件 / 故障词表沿用项目知识图谱；其余（机组编号、时间、症状、停机时长、数字）均为模板生成，不是实测分布。它的作用是把样本量做够、把语料做出干扰，不是当真实数据使用。

@@ -19,10 +19,10 @@
 //   6. 主仓 CI 收到 tag 后构建并发布 Release
 //
 // 用法（在项目根目录）：
-//   npm run release -- 0.2.4                # 普通发布（先跑门禁）
-//   npm run release -- 0.2.4 --dry-run      # 只预览会回写哪些文件，不写盘不提交不推送
-//   npm run release -- 0.2.4 --no-verify    # 跳过门禁（不建议）
-//   npm run release -- 0.2.4 --force        # 工作区有改动也强发（风险自负）
+//   node scripts/release.mjs 0.2.4                # normal release
+//   node scripts/release.mjs 0.2.4 --dry-run      # preview only
+//   node scripts/release.mjs 0.2.4 --no-verify    # skip the gate
+//   node scripts/release.mjs 0.2.4 --force        # allow a dirty worktree
 //   node scripts/release.mjs 0.2.4 --config path/to/pipeline.config.json
 // ============================================================================
 
@@ -51,8 +51,8 @@ const KNOWN_FLAGS = ["--force", "--dry-run", "--no-verify", "--config"];
 const unknownFlags = args.filter((a) => a.startsWith("--") && !KNOWN_FLAGS.includes(a));
 if (unknownFlags.length > 0) {
   console.error(
-    `未知参数：${unknownFlags.join(" ")}\n` +
-      `可用参数：${KNOWN_FLAGS.join(" / ")}（--config 需跟一个路径）`
+    `Unknown argument(s): ${unknownFlags.join(" ")}\n` +
+      `Available flags: ${KNOWN_FLAGS.join(" / ")} (--config needs a path)`
   );
   process.exit(1);
 }
@@ -69,7 +69,7 @@ const configPath = path.resolve(
 
 if (!versionArg) {
   console.error(
-    "用法：npm run release -- <版本，如 0.2.4> [--no-verify] [--force] [--dry-run] [--config <path>]"
+    "Usage: node scripts/release.mjs <version, for example 0.2.4> [--no-verify] [--force] [--dry-run] [--config <path>]"
   );
   process.exit(1);
 }
@@ -79,7 +79,7 @@ const version = versionArg.replace(/^v/, "");
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 if (!SEMVER.test(version)) {
   console.error(
-    `版本号格式错误：${versionArg}\n应为 0.2.4 或 v0.2.4（也接受 1.0.0-rc.1 这类预发布版本）。`
+    `Invalid version: ${versionArg}\nExpected 0.2.4 or v0.2.4 (pre-release versions such as 1.0.0-rc.1 are also accepted).`
   );
   process.exit(1);
 }
@@ -87,15 +87,15 @@ if (!SEMVER.test(version)) {
 function loadConfig() {
   if (!fs.existsSync(configPath)) {
     console.error(
-      `找不到配置文件：${configPath}\n` +
-        `从模板目录复制 pipeline.config.example.json 到项目根目录并改名为 pipeline.config.json，再按项目实际情况改字段。`
+      `Config file not found: ${configPath}\n` +
+        "Copy pipeline.config.example.json to the project root as pipeline.config.json and update its fields."
     );
     process.exit(1);
   }
   try {
     return JSON.parse(fs.readFileSync(configPath, "utf8"));
   } catch (err) {
-    console.error(`配置文件不是合法 JSON：${configPath}\n${err.message}`);
+    console.error(`Invalid JSON config: ${configPath}\n${err.message}`);
     process.exit(1);
   }
 }
@@ -107,7 +107,7 @@ const tag = `${tagPrefix}${version}`;
 const versionFiles = Array.isArray(config.versionFiles) ? config.versionFiles : [];
 
 if (versionFiles.length === 0) {
-  console.error(`配置里没有 versionFiles（或为空）：${configPath}\n没有要回写的位置就无从发版。`);
+  console.error(`Config has no versionFiles (or it is empty): ${configPath}\nNo version file can be updated.`);
   process.exit(1);
 }
 
@@ -141,8 +141,8 @@ function pushWithRetry(label, cmd) {
     } catch (err) {
       const msg = `${err.stderr || ""}${err.stdout || ""}${err.message || ""}`;
       if (attempt === 1 && TRANSIENT_NET.test(msg)) {
-        const first = msg.trim().split(/\r?\n/).filter(Boolean).pop() || "网络类报错";
-        console.log(`  ! ${label}：疑似代理 / 网络瞬时抖动（${first}），原样重试一次…`);
+        const first = msg.trim().split(/\r?\n/).filter(Boolean).pop() || "network error";
+        console.log(`  ! ${label}: transient proxy or network error (${first}); retrying once...`);
         continue;
       }
       if (msg.trim()) console.error(msg.trim());
@@ -176,7 +176,7 @@ function remoteWebUrl(name) {
 /** 顶层 version 字段（package.json / tauri.conf.json） */
 function bumpJson(abs, raw, nextVersion) {
   const obj = JSON.parse(raw);
-  if (typeof obj.version !== "string") throw new Error(`${rel(abs)} 缺少顶层 version 字段，无法回写`);
+  if (typeof obj.version !== "string") throw new Error(`${rel(abs)} is missing a top-level version field`);
   if (obj.version === nextVersion) return null;
   const old = obj.version;
   obj.version = nextVersion;
@@ -186,10 +186,10 @@ function bumpJson(abs, raw, nextVersion) {
 /** TOML [package] 段的 version 行（Cargo.toml） */
 function bumpTomlPackage(abs, raw, nextVersion) {
   const marker = raw.indexOf("[package]");
-  if (marker < 0) throw new Error(`${rel(abs)} 找不到 [package] 段`);
+  if (marker < 0) throw new Error(`${rel(abs)} has no [package] section`);
   const rest = raw.slice(marker);
   const m = rest.match(/^version = "([^"]*)"/m);
-  if (!m) throw new Error(`${rel(abs)} 的 [package] 段里没有 version 行`);
+  if (!m) throw new Error(`${rel(abs)} has no version line in [package]`);
   if (m[1] === nextVersion) return null;
   const next = rest.replace(/^version = "[^"]*"/m, `version = "${nextVersion}"`);
   return { file: abs, old: m[1], next: raw.slice(0, marker) + next };
@@ -198,7 +198,7 @@ function bumpTomlPackage(abs, raw, nextVersion) {
 /** Cargo.lock 中 name = <pkgName> 的那个 [[package]] 块的 version */
 function bumpCargoLock(abs, raw, nextVersion, pkgName) {
   if (!pkgName) {
-    throw new Error(`${rel(abs)} 的 type 是 cargo-lock，必须在配置里补 name 字段（Cargo 包名）`);
+    throw new Error(`${rel(abs)} uses type cargo-lock and requires a name field in the config`);
   }
   const lines = raw.split("\n");
   const out = [];
@@ -232,8 +232,8 @@ function bumpCargoLock(abs, raw, nextVersion, pkgName) {
     }
     out.push(line);
   }
-  if (!found) throw new Error(`在 ${rel(abs)} 里找不到 name = "${pkgName}" 的 [[package]] 块`);
-  if (oldVersion === null) throw new Error(`name = "${pkgName}" 的块里没有 version 行（${rel(abs)}）`);
+  if (!found) throw new Error(`Cannot find the [[package]] block for name = "${pkgName}" in ${rel(abs)}`);
+  if (oldVersion === null) throw new Error(`The block for name = "${pkgName}" has no version line in ${rel(abs)}`);
   if (oldVersion === nextVersion) return null;
   return { file: abs, old: oldVersion, next: out.join("\n") };
 }
@@ -241,11 +241,11 @@ function bumpCargoLock(abs, raw, nextVersion, pkgName) {
 /** 自定义正则：pattern 匹配含旧版本的那段文本，replace 里的 $VERSION 代表新版本 */
 function bumpRegex(abs, raw, nextVersion, entry) {
   if (!entry.pattern || typeof entry.replace !== "string") {
-    throw new Error(`${rel(abs)} 的 regex 项必须同时给 pattern 与 replace`);
+    throw new Error(`${rel(abs)} regex entries require both pattern and replace`);
   }
   const flags = entry.flags || "m";
   if (!new RegExp(entry.pattern, flags).test(raw)) {
-    throw new Error(`正则没有匹配到任何内容：${entry.pattern}（${rel(abs)}）`);
+    throw new Error(`Regex matched no content: ${entry.pattern} (${rel(abs)})`);
   }
   const next = raw.replace(
     new RegExp(entry.pattern, flags),
@@ -257,7 +257,7 @@ function bumpRegex(abs, raw, nextVersion, entry) {
 
 function bump(entry) {
   const abs = path.resolve(ROOT, entry.path);
-  if (!fs.existsSync(abs)) throw new Error(`版本文件不存在：${entry.path}`);
+  if (!fs.existsSync(abs)) throw new Error(`Version file not found: ${entry.path}`);
   const raw = fs.readFileSync(abs, "utf8");
   switch (entry.type) {
     case "json":
@@ -270,7 +270,7 @@ function bump(entry) {
       return bumpRegex(abs, raw, version, entry);
     default:
       throw new Error(
-        `未知的 type：${entry.type}（${entry.path}）。可选：json / toml-package / cargo-lock / regex`
+        `Unknown version file type: ${entry.type} (${entry.path}). Use json, toml-package, cargo-lock, or regex.`
       );
   }
 }
@@ -281,8 +281,8 @@ function ensureGitIdentity() {
     execSync("git config user.email", { cwd: ROOT, stdio: "pipe" });
   } catch {
     console.error(
-      "\n本机 git 没有配置 user.name / user.email，无法自动提交版本回写。\n" +
-        '先执行：git config user.name "你的名字" && git config user.email "you@example.com"'
+      "\nGit user.name / user.email are not configured, so the version update cannot be committed.\n" +
+        'Run: git config user.name "Your Name" && git config user.email "you@example.com"'
     );
     process.exit(1);
   }
@@ -292,8 +292,8 @@ function ensureGitIdentity() {
 const status = execSync("git status --porcelain", { cwd: ROOT }).toString().trim();
 if (status && !force) {
   console.error(
-    "工作区有未提交改动，发布应从干净历史出发。\n" +
-      "先提交或撤销改动，或用 --force 强行发布（风险自负）。\n\n" +
+    "The worktree has uncommitted changes; release from a clean history.\n" +
+      "Commit or discard the changes, or use --force to continue.\n\n" +
       status
   );
   process.exit(1);
@@ -310,7 +310,7 @@ if (!skipVerify) {
 try {
   execSync(`git rev-parse "${tag}"`, { cwd: ROOT, stdio: "ignore" });
   console.error(
-    `tag ${tag} 已存在。删除旧 tag（git tag -d ${tag} && git push ${remote} :${tag}）后再发。`
+    `Tag ${tag} already exists. Delete it (git tag -d ${tag} && git push ${remote} :${tag}) before releasing.`
   );
   process.exit(1);
 } catch {
@@ -321,16 +321,16 @@ try {
 const bumps = versionFiles.map(bump).filter(Boolean);
 
 if (bumps.length === 0) {
-  console.log(`\n[release] 所有版本文件都已是 ${version}，无需回写。`);
+  console.log(`\n[release] All version files already contain ${version}; no update needed.`);
 } else {
-  console.log(`\n[release] 把版本号回写为 ${version}：`);
+  console.log(`\n[release] Updating version files to ${version}:`);
   for (const b of bumps) {
     console.log(`  - ${rel(b.file)}: ${b.old} -> ${version}`);
   }
 }
 
 if (dryRun) {
-  console.log("\n[dry-run] 以上仅为预览：未写盘、未提交、未推送。");
+  console.log("\n[dry-run] Preview only: no files, commits, or pushes were changed.");
   process.exit(0);
 }
 
@@ -369,7 +369,7 @@ if (pushCfg && Array.isArray(pushCfg.list)) {
 if (!targets.some((t) => t.primary)) targets.unshift({ name: primaryName, primary: true });
 
 console.log(
-  `\n[release] 推送 ${branch} + ${tag} → ${targets.map((t) => t.name + (t.primary ? "(主)" : "")).join(" / ")}`
+  `\n[release] Pushing ${branch} + ${tag} -> ${targets.map((t) => t.name + (t.primary ? " (primary)" : "")).join(" / ")}`
 );
 
 let primaryWeb = "";
@@ -380,46 +380,46 @@ for (const t of targets) {
   if (!remoteExists(t.name)) {
     if (t.primary) {
       console.error(
-        `\n主仓远程 ${t.name} 不存在，发版中止。\n` +
-          `先绑远程：git remote add ${t.name} <仓库地址>（GitHub = 主仓，必须存在）`
+        `\nPrimary remote ${t.name} does not exist; release aborted.\n` +
+          `Add it first: git remote add ${t.name} <repository-url> (GitHub is the primary remote.)`
       );
       process.exit(1);
     }
-    console.log(`  - 远程 ${t.name} 未配置，跳过（镜像缺失不影响发版，补绑后 git push ${t.name} ${tag} 即可）`);
+    console.log(`  - Remote ${t.name} is not configured; skipping. Add it later and push with git push ${t.name} ${tag}.`);
     continue;
   }
 
   const web = remoteWebUrl(t.name);
   try {
-    pushWithRetry(`${t.name} 分支`, `git push "${t.name}" "${branch}"`);
+    pushWithRetry(`${t.name} branch`, `git push "${t.name}" "${branch}"`);
     pushWithRetry(`${t.name} tag`, `git push "${t.name}" "${tag}"`);
-    console.log(`  ✓ ${t.name}${web ? "  " + web : ""}`);
+    console.log(`  [ok] ${t.name}${web ? "  " + web : ""}`);
     if (t.primary) primaryWeb = web;
     else mirrorPushed.push(t.name);
   } catch (err) {
     if (t.primary) {
       console.error(
-        `\n主仓 ${t.name} 推送失败，发版中止（tag 已在本地）。\n` +
-          `排除网络 / 权限问题后补推：git push ${t.name} ${branch} && git push ${t.name} ${tag}\n` +
+        `\nPrimary remote ${t.name} push failed; release aborted (the tag is local).\n` +
+          `After fixing network or permission issues, run: git push ${t.name} ${branch} && git push ${t.name} ${tag}\n` +
           `${err.message}`
       );
       process.exit(1);
     }
     mirrorFailed.push(t.name);
     console.error(
-      `\n  ! 镜像 ${t.name} 推送失败：${err.message}\n` +
-        `    主仓已推成功，不影响发版；稍后补推：git push ${t.name} ${branch} && git push ${t.name} ${tag}`
+      `\n  ! Mirror ${t.name} push failed: ${err.message}\n` +
+        `    Primary push succeeded. Retry later with: git push ${t.name} ${branch} && git push ${t.name} ${tag}`
     );
   }
 }
 
 const mirrors = targets.filter((t) => !t.primary);
-console.log(`\n[release] ${tag} 已推送。CI 收到 tag 后会构建并发布 Release${primaryWeb ? "：" : "。"}`);
+console.log(`\n[release] ${tag} pushed. CI will build and publish the Release after receiving the tag${primaryWeb ? ":" : "."}`);
 if (primaryWeb) console.log(`  ${primaryWeb}/releases`);
 if (mirrors.length > 0) {
-  if (mirrorPushed.length > 0) console.log(`  镜像分支 + tag 已同步：${mirrorPushed.join(" / ")}`);
-  if (mirrorFailed.length > 0) console.log(`  镜像推送失败：${mirrorFailed.join(" / ")}（补推：git push <远程> ${branch} && git push <远程> ${tag}）`);
+  if (mirrorPushed.length > 0) console.log(`  Mirror branch + tag synced: ${mirrorPushed.join(" / ")}`);
+  if (mirrorFailed.length > 0) console.log(`  Mirror pushes failed: ${mirrorFailed.join(" / ")} (retry with git push <remote> ${branch} && git push <remote> ${tag})`);
   console.log(
-    `  产物（安装包 / 附件）需要再跑一步：npm run mirror:sync${mirrorFailed.length ? "（失败的镜像先 git push 补齐 tag 再同步）" : ""}`
+    `  Artifacts require a separate step: node scripts/mirror-sync.mjs${mirrorFailed.length ? " (push the missing mirror tag first)" : ""}`
   );
 }

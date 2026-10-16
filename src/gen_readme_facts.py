@@ -62,7 +62,7 @@ def collect_facts() -> Dict[str, object]:
                         if name in ANSWER_LAYERS) / answers
 
     loader = unittest.TestLoader()
-    suite = loader.discover(str(ROOT / "tests"), pattern="test_*.py")
+    suite = loader.discover(str(ROOT / "tests"), pattern="test_pure_rag.py", top_level_dir=str(ROOT))
 
     from pure_rag import __version__
 

@@ -7,7 +7,7 @@
 // 换技术栈只改配置，不改本文件。
 //
 // 用法（在项目根目录）：
-//   npm run verify                       # 跑全部
+//   node scripts/verify.mjs              # run all gates
 //   node scripts/verify.mjs --list       # 只列出会跑哪些命令，不执行
 //   node scripts/verify.mjs --only "rust fmt"          # 只跑指定项（可重复传）
 //   node scripts/verify.mjs --skip "frontend build"    # 跳过指定项（可重复传）
@@ -37,8 +37,8 @@ const KNOWN_FLAGS = ["--list", "--only", "--skip", "--key", "--config"];
 const unknownFlags = argv.filter((a) => a.startsWith("--") && !KNOWN_FLAGS.includes(a));
 if (unknownFlags.length > 0) {
   console.error(
-    `未知参数：${unknownFlags.join(" ")}\n` +
-      `可用参数：${KNOWN_FLAGS.join(" / ")}（--only / --skip / --key 需跟一个值，--config 需跟一个路径）`
+    `Unknown argument(s): ${unknownFlags.join(" ")}\n` +
+      `Available flags: ${KNOWN_FLAGS.join(" / ")} (--only, --skip, and --key need a value; --config needs a path)`
   );
   process.exit(1);
 }
@@ -55,15 +55,15 @@ const configPath = path.resolve(
 function loadConfig() {
   if (!fs.existsSync(configPath)) {
     console.error(
-      `找不到配置文件：${configPath}\n` +
-        `从模板目录复制 pipeline.config.example.json 到项目根目录并改名为 pipeline.config.json（按项目实际情况改其中的字段）。`
+      `Config file not found: ${configPath}\n` +
+        "Copy pipeline.config.example.json to the project root as pipeline.config.json and update its fields."
     );
     process.exit(1);
   }
   try {
     return JSON.parse(fs.readFileSync(configPath, "utf8"));
   } catch (err) {
-    console.error(`配置文件不是合法 JSON：${configPath}\n${err.message}`);
+    console.error(`Invalid JSON config: ${configPath}\n${err.message}`);
     process.exit(1);
   }
 }
@@ -77,10 +77,10 @@ const steps = Array.isArray(config[configKey]) ? config[configKey] : [];
 
 if (steps.length === 0) {
   console.error(
-    `配置里没有 ${configKey} 数组（或为空）：${configPath}\n` +
+    `Config has no ${configKey} array (or it is empty): ${configPath}\n` +
       (configKey === "verify"
-        ? "请先写上门禁命令；确实不需要门禁的仓库，把 release.mjs 用 --no-verify 跑。"
-        : `--key ${configKey} 指向的是可选门禁（如 precommit），留空即可 —— 调用方会自动跳过。`)
+        ? "Add gate commands first. If this repository needs no gate, run release.mjs with --no-verify."
+        : `--key ${configKey} points to an optional gate; leave it empty only when the caller explicitly skips it.`)
   );
   process.exit(1);
 }
@@ -99,12 +99,12 @@ const selected = steps.filter((s) => {
 });
 
 if (selected.length === 0) {
-  console.error("过滤后没有要跑的项，检查 --only / --skip 的名字是否与配置里的 name 一致。");
+  console.error("No steps remain after filtering; check --only / --skip names against the config.");
   process.exit(1);
 }
 
 if (listOnly) {
-  console.log(`配置文件：${path.relative(ROOT, configPath)}`);
+  console.log(`Config: ${path.relative(ROOT, configPath)}`);
   for (const [i, s] of selected.entries()) {
     const cwd = s.cwd ? `  (cwd: ${s.cwd})` : "";
     console.log(`  ${i + 1}. [${s.name || s.cmd}] ${s.cmd}${cwd}`);
@@ -120,15 +120,15 @@ for (const step of selected) {
   console.log(`\n=== [${name}] ===`);
   try {
     execSync(normalizeCmd(step.cmd), { cwd, stdio: "inherit" });
-    console.log(`--- ${name} 通过 ---`);
+    console.log(`--- ${name} passed ---`);
   } catch {
     failed.push(name);
   }
 }
 
 if (failed.length > 0) {
-  console.error(`\n[verify] 以下 ${failed.length} 项失败：\n  - ${failed.join("\n  - ")}`);
+  console.error(`\n[verify] ${failed.length} step(s) failed:\n  - ${failed.join("\n  - ")}`);
   process.exit(1);
 }
 
-console.log(`\n[verify] 全绿：${selected.map((s) => s.name || s.cmd).join(" / ")} 均通过。`);
+console.log(`\n[verify] All selected steps passed: ${selected.map((s) => s.name || s.cmd).join(" / ")}.`);

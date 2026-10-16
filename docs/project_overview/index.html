@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./style.css">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script defer src="./overview-data.js"></script>
   <script defer src="./charts.js"></script>
   <script defer src="./script.js"></script>
 </head>
@@ -47,17 +48,17 @@
     </div>
     <p class="hero-tagline">A lightweight, <strong>pure-standard-library</strong> RAG for wind-turbine O&amp;M knowledge bases.</p>
     <div class="hero-chips">
-      <span class="chip">v1.0.0</span>
+      <span class="chip" data-overview="version" data-overview-format="version">v</span>
       <span class="chip">0 third-party deps</span>
       <span class="chip">BM25 + TF-IDF + fusion</span>
       <span class="chip">zero-dependency Web UI</span>
     </div>
     <div class="hero-stats">
-      <div class="stat"><span class="num" data-count="1269">0</span><span class="stat-label">corpus docs</span></div>
-      <div class="stat"><span class="num" data-count="1273">0</span><span class="stat-label">chunks</span></div>
-      <div class="stat"><span class="num" data-count="97.62" data-suffix="%" data-decimals="2">0</span><span class="stat-label">answer Recall@3</span></div>
-      <div class="stat"><span class="num" data-count="1473">0</span><span class="stat-label">eval items</span></div>
-      <div class="stat"><span class="num" data-count="110">0</span><span class="stat-label">unit tests</span></div>
+      <div class="stat"><span class="num" data-overview="corpus_docs">0</span><span class="stat-label">corpus docs</span></div>
+      <div class="stat"><span class="num" data-overview="chunks">0</span><span class="stat-label">chunks</span></div>
+      <div class="stat"><span class="num" data-overview="answer_recall" data-overview-format="percent" data-decimals="2">0</span><span class="stat-label">answer Recall@3</span></div>
+      <div class="stat"><span class="num" data-overview="eval_items">0</span><span class="stat-label">eval items</span></div>
+      <div class="stat"><span class="num" data-overview="unit_tests">0</span><span class="stat-label">unit tests</span></div>
     </div>
     <div class="hero-nav">
       <a class="btn-primary" href="#quickstart">Quick Start</a>
@@ -244,7 +245,7 @@
           <div class="tree-files">
             <div><span class="file">assets/banner.svg</span> generated hero banner</div>
             <div><span class="dir">archify/</span> interactive architecture/workflow/sequence/dataflow HTML</div>
-            <div><span class="dir">project_overview/</span> this dashboard</div>
+            <div><span class="dir">project_overview/</span> this dashboard and generated overview-data.js</div>
           </div>
         </details>
         <details>
@@ -257,6 +258,7 @@
           <summary><span class="dir">scripts/visualization/</span> — README asset generators</summary>
           <div class="tree-files">
             <div><span class="file">generate_banner.py</span> renders docs/assets/banner.svg from real sources</div>
+            <div><span class="file">generate_overview.py</span> renders project_overview/overview-data.js from real sources</div>
           </div>
         </details>
       </div>
@@ -278,7 +280,7 @@
     <!-- RESULTS -->
     <section class="card" id="results">
       <h2>Evaluation Results</h2>
-      <p class="lead">Figures are read from <code>data/pure_index/report.json</code> and <code>ablation.json</code> at build time (single source). Use the tabs to switch view.</p>
+      <p class="lead">Figures are generated from <code>data/pure_index/report.json</code> and <code>ablation.json</code> into <code>overview-data.js</code>. Use the tabs to switch view.</p>
       <div class="tabs" id="resultTabs">
         <button class="tab active" data-tab="layers">By layer</button>
         <button class="tab" data-tab="ablation">Ablation</button>
@@ -299,7 +301,7 @@
         <div class="chart-wrap"><canvas id="chartAblation" height="260"></canvas></div>
         <div class="table-scroll">
           <table class="data-table" id="tblAblation">
-            <thead><tr><th>Config</th><th>Recall@k</th><th>MRR</th><th>Rewrite</th><th>Case</th><th>avg ms</th></tr></thead>
+            <thead><tr><th>Config</th><th>Recall@k</th><th>MRR</th><th>Rewrite</th><th>Case</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -309,14 +311,14 @@
         <div class="chart-wrap"><canvas id="chartAlpha" height="260"></canvas></div>
         <div class="table-scroll">
           <table class="data-table" id="tblAlpha">
-            <thead><tr><th>Alpha</th><th>Recall@k</th><th>MRR</th><th>Case</th><th>avg ms</th></tr></thead>
+            <thead><tr><th>Alpha</th><th>Recall@k</th><th>MRR</th><th>Case</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
       </div>
 
       <div class="note">
-        <strong>Honest limits.</strong> Synthetic queries are derived from document fields and share rare terms with the answer, so the answer layer reaches 97.62%; human-written colloquial questions (the <code>human_like</code> layer) drop to 58% Recall@3 — the gap is the lexical gap a sparse TF-IDF "vector" channel cannot bridge. This is reported, not hidden.
+        <strong>Honest limits.</strong> Synthetic queries are derived from document fields and share rare terms with the answer, so the answer layer reaches <span data-overview="answer_recall" data-overview-format="percent" data-decimals="2"></span>; human-written colloquial questions (the <code>human_like</code> layer) drop to <span data-overview="human_recall" data-overview-format="percent" data-decimals="0"></span> Recall@3 - the gap is the lexical gap a sparse TF-IDF "vector" channel cannot bridge. This is reported, not hidden.
       </div>
     </section>
 
@@ -353,14 +355,14 @@ result = engine.query(<span class="str">"gearbox overheating handling?"</span>)
     <section class="card" id="quality">
       <h2>Tests &amp; Quality</h2>
       <div class="quality-grid">
-        <div class="qstat"><span class="num" data-count="110">0</span><span>unit tests</span></div>
-        <div class="qstat"><span class="num" data-count="8">0</span><span>eval layers</span></div>
-        <div class="qstat"><span class="num" data-count="1473">0</span><span>eval items</span></div>
+        <div class="qstat"><span class="num" data-overview="unit_tests">0</span><span>unit tests</span></div>
+        <div class="qstat"><span class="num" data-overview="eval_layers">0</span><span>eval layers</span></div>
+        <div class="qstat"><span class="num" data-overview="eval_items">0</span><span>eval items</span></div>
         <div class="qstat"><span>CI</span><span>unit + eval gate + README figures check</span></div>
       </div>
       <div class="code-block"><div class="code-head"><span>bash</span><button class="copy-btn" data-copy>Copy</button></div><pre><code><span class="kw">python</span> -m unittest tests.test_pure_rag -v
 <span class="kw">python</span> src/rag_cli.py eval -n 15 --robust --negative --no-save --min-recall 0.9</code></pre></div>
-      <p class="muted">The test count above is a real snapshot; the authoritative count is regenerated into the README by <code>python src/gen_readme_facts.py</code>.</p>
+      <p class="muted">The values above are generated from the index and evaluation reports by <code>python scripts/visualization/generate_overview.py</code>. CI checks the generated asset for drift.</p>
     </section>
 
     <!-- DOCS -->
@@ -396,9 +398,9 @@ result = engine.query(<span class="str">"gearbox overheating handling?"</span>)
   <button id="backTop" class="back-top" aria-label="Back to top">↑</button>
 
   <!--
-    Generated: 2026-10-16 by Qoder agent (this overview dashboard).
+    Generated dashboard shell. Numeric values are generated into ./project_overview/overview-data.js.
     Sources of truth: src/pure_rag (__version__), data/pure_index/meta.json, data/pure_index/report.json,
-    data/pure_index/ablation.json. Charts/tables data live in ./charts.js (WD_DATA) - single source.
+    and data/pure_index/ablation.json. The generator is scripts/visualization/generate_overview.py.
     Assets reused, not redrawn: ../assets/banner.svg (via scripts/visualization/generate_banner.py)
     and ./archify/*.html (Archify). GitHub Pages legacy deploy: publish source = /docs.
   -->

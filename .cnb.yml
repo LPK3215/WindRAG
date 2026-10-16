@@ -8,22 +8,26 @@
 #   - main 回归：合并后确认主干仍然可用
 # 只有 PR 分支会由 PR 事件触发，因此不再给兜底分支单独配 push，避免同一次推送跑两遍。
 
-# 复用的执行流程：单元测试 → 构建索引 → 评测（Recall 门禁 0.9）→ 文档事实一致性
+# 复用的执行流程：单元测试 → 生成语料 → 构建索引 → 评测 → 消融 → 文档资产一致性
 .check-stages: &check-stages
   docker:
     image: python:3.11-slim
   stages:
     - name: 单元测试
       script: python -m unittest tests.test_pure_rag -v
-    - name: 构建索引与检索评测
+    - name: 生成语料、构建索引与检索评测
       script: |
         python src/simulate_corpus.py
         python src/rag_cli.py build
         python src/rag_cli.py eval --report --min-recall 0.9
-    - name: 文档事实一致性
+    - name: 消融报告
+      script: python src/rag_cli.py ablation
+    - name: 文档资产一致性
       script: |
         python src/gen_readme_facts.py --check
         python src/gen_readme_facts.py --check --readme README.zh-CN.md
+        python scripts/visualization/generate_banner.py --check
+        python scripts/visualization/generate_overview.py --check
 
 main:
   pull_request:

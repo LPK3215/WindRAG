@@ -22,13 +22,13 @@ No. Retrieval and generation are separate layers. Without `LLM_API_KEY` (or with
 
 No. There is no dense-vector model. The "semantic" channel is hand-written sparse TF-IDF with cosine similarity. This is an honest limit, not a shortcut in the docs: the evaluation section of the README explains why lexical gaps (symptom phrasing vs. document phrasing) hurt real colloquial queries.
 
-## Why does the README show 97% Recall but also 50-68% for colloquial queries?
+## Why does the README show high synthetic Recall but lower colloquial results?
 
 Both are real and come from different eval layers. The high number is from synthetic queries derived from document fields (they share rare terms with the answer). The lower number is from human-written colloquial questions in `data/human_questions.json`, measured by `python src/pure_rag/human_eval.py`. The gap is the point: synthetic evaluation overstates usability, which is why the `human_like` layer is kept in the eval set.
 
 ## Where do the numbers in the README come from?
 
-They are generated, never hand-written. `python src/rag_cli.py eval --report` produces the report, then `python src/gen_readme_facts.py` (and `--readme README.zh-CN.md` for the Chinese edition) writes the `AUTO:FACTS` block from `report.json` / `meta.json` / `knowledge_graph.json` / unittest discovery / `pure_rag.__version__`. CI runs `--check` to fail on drift.
+They are generated, never hand-written. `python src/rag_cli.py eval --report` produces the report, then `python src/gen_readme_facts.py` (and `--readme README.zh-CN.md` for the Chinese edition) writes the `AUTO:FACTS` block from `report.json` / `meta.json` / `knowledge_graph.json` / the pure-Python test suite / `pure_rag.__version__`. `python src/rag_cli.py ablation` plus `python scripts/visualization/generate_overview.py` updates the dashboard asset. CI runs both generators in check mode to fail on drift.
 
 ## Can I add my own documents?
 

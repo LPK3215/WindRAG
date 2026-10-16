@@ -20,12 +20,12 @@
 // 换技术栈只改配置，不改本文件。
 //
 // 用法（在项目根目录；建 Release 需已安装并登录 gh）：
-//   npm run publish:local              # 门禁 → 出包 → 建/更新该 tag 的 Release
-//   npm run publish:local -- --dry-run # 只显示会做什么，不执行
-//   npm run publish:local -- --no-release  # 只出包到本地，不碰 GitHub
-//   npm run publish:local -- --no-verify   # 跳过门禁（不建议）
-//   npm run publish:local -- --tag v0.2.1  # 显式指定 tag（默认按版本文件推导）
-//   npm run publish:local -- --force       # 工作区有改动也继续（风险自负）
+//   node scripts/publish-local.mjs              # gate, build, and create a Release
+//   node scripts/publish-local.mjs --dry-run    # preview only
+//   node scripts/publish-local.mjs --no-release # build locally without GitHub
+//   node scripts/publish-local.mjs --no-verify  # skip the gate
+//   node scripts/publish-local.mjs --tag v0.2.1 # select a tag explicitly
+//   node scripts/publish-local.mjs --force      # allow a dirty worktree
 // ============================================================================
 
 import { execSync } from "node:child_process";
@@ -322,7 +322,7 @@ try {
 if (!hasLocalTag) {
   console.error(
     `本地没有 tag ${tag}。本脚本只负责"出包 + 建 Release"，打 tag 交给 release.mjs：\n` +
-      `  npm run release -- ${version}\n` +
+      `  node scripts/release.mjs ${version}\n` +
       `（它会把版本号回写到配置里的每个位置、commit、打 tag、推分支与 tag。）`
   );
   process.exit(1);

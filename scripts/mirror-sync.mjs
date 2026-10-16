@@ -14,12 +14,12 @@
 // 读项目根目录 pipeline.config.json 的 "mirrorSync" 段。
 //
 // 用法（在项目根目录）：
-//   npm run mirror:sync                         # 同步最新 Release 到所有配了的镜像
-//   npm run mirror:sync -- --tag v1.2.3         # 指定 tag
-//   npm run mirror:sync -- --dry-run            # 只显示会做什么，不执行
-//   npm run mirror:sync -- --skip-assets        # 只同步 tag + release 文本，不下载/上传产物
-//   npm run mirror:sync -- --force              # 镜像已有同名 Release 时覆盖（先删再建）
-//   npm run mirror:sync -- --only gitee         # 只同步指定平台（逗号分隔多个）
+//   node scripts/mirror-sync.mjs                # sync the latest Release
+//   node scripts/mirror-sync.mjs --tag v1.2.3   # select a tag
+//   node scripts/mirror-sync.mjs --dry-run      # preview only
+//   node scripts/mirror-sync.mjs --skip-assets  # sync tag and text only
+//   node scripts/mirror-sync.mjs --force        # replace an existing mirror Release
+//   node scripts/mirror-sync.mjs --only gitee   # select mirror platforms
 // ============================================================================
 
 import { execSync } from "node:child_process";
