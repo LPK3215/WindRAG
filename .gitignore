@@ -16,6 +16,8 @@ build/
 # 数据索引（可重新生成）
 data/processed/index/
 data/processed/chunks/
+data/pure_index/
+data/chat_logs/
 data/adaptive_model/
 data/adaptive_fusion_training.json
 data/evaluation_report.json

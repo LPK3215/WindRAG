@@ -116,7 +116,102 @@ $$S_{hybrid}(q, d) = \alpha \cdot \hat{S}_{vec}(q, d) + (1-\alpha) \cdot \hat{S}
 
 ---
 
-## 🚀 快速开始
+## ⚡ 零依赖纯 Python 检索内核
+
+`sentence-transformers` 会连带安装 PyTorch（约 2GB），`rank-bm25`、`gradio` 等也都是外部依赖。
+为此项目在 `src/pure_rag/` 下另外实现了一套**只用 Python 标准库**的检索内核，与重依赖版并存，
+两者共用同一份数据与知识图谱：
+
+| 能力 | 常依赖版 | 纯 Python 版 |
+|------|---------|-------------|
+| 中文分词 | jieba | 领域词典 + 正向最大匹配 + 二元组，并可无监督发现新词 |
+| 关键词检索 | rank-bm25 | 手写 Okapi BM25（倒排表 + 平滑 IDF） |
+| 语义检索 | text2vec-base-chinese（768 维） | 手写 TF-IDF 稀疏向量 + 倒排索引 + 余弦相似度 |
+| 融合权重 | MLP + 规则先验 | 规则先验自适应 α + RRF 多路合并 + MMR 多样性重排 |
+| 知识图谱 | embedding 余弦匹配 | TF-IDF 语义匹配 + 同义词表（解决"变速箱 → 齿轮箱"） |
+| 答案生成 | LLM API | 抽取式摘要（默认），可选 LLM（标准库 urllib 直连） |
+| 数据导入 | 需自行扩展 | 自动纳入 `data/user_docs/` 的 txt / md / json / csv / **docx**（zipfile 解析），支持 `add` 增量追加 |
+| 结果展示 | 纯文本 | 命中词字符级高亮（终端 ANSI / Web `<mark>` / 记录 Markdown 加粗） |
+| 打分明细 | 无 | `explain` 展示每个查询词对 BM25 / TF-IDF 得分的贡献 |
+| 参数调优 | 手工 | `tune` 网格搜索分块与融合参数并落盘生效 |
+| 对话记录 | 无 | `chat` 的 `/save` 或 `--log` 导出带来源的 Markdown 记录 |
+| Web 界面 | Gradio | `http.server` 单页应用 |
+| 第三方依赖 | 10+ 个包 | **0 个** |
+
+### 用法（无需安装任何依赖）
+
+```bash
+python src/rag_cli.py build                        # 构建索引（分词 + BM25 + TF-IDF + 新词发现）
+python src/rag_cli.py add 新资料.docx               # 增量追加（不重建整个索引）
+python src/rag_cli.py ask "齿轮箱温度过高应该怎么处理？" --show-docs
+python src/rag_cli.py chat --log                   # 交互式多轮问答，退出时自动导出记录
+python src/rag_cli.py explain "变速箱异响怎么排查？"  # 查看逐词打分明细
+python src/rag_cli.py eval -n 15 --robust          # 自召回 + 改写查询鲁棒性评测
+python src/rag_cli.py tune --quick                 # 网格搜索最优参数（去掉 --quick 为完整网格）
+python src/rag_cli.py stats                        # 索引统计
+python src/rag_cli.py serve --port 8000            # 零依赖 Web 界面
+```
+
+把自有资料（含 Word 文档）放进 `data/user_docs/` 后重新 `build` 即可被检索到；也可以直接
+`add 文件/目录` 增量入库（只对新增文档分块分词，旧文档复用持久化的词序列）。
+
+作为库调用：
+
+```python
+import sys; sys.path.insert(0, "src")
+from pure_rag import RAGEngine
+
+engine = RAGEngine(use_llm=False)
+result = engine.query("齿轮箱温度过高应该怎么处理？")
+print(result["answer"])
+for doc in result["retrieved_docs"]:
+    print(doc["score"], doc["matched"], doc["metadata"]["title"])   # matched 为命中词
+```
+
+测试与索引文件：
+
+```bash
+python -m unittest tests.test_pure_rag -v     # 59 项单元测试
+```
+`data/pure_index/` 下为 `documents.json`（分块）、`tokens.json`（词序列缓存）、`bm25.json`、
+`tfidf.json`、`meta.json`、`tuning.json`，全部可重新生成，已加入 `.gitignore`。
+
+### 实测（本仓库 66 篇文档 → 70 个分块）
+
+| 指标 | 数值 |
+|------|------|
+| Recall@3（QA 自召回） | **100%** |
+| MRR / nDCG@3 | 0.8889 / 0.9175 |
+| Recall@3（同义词/关键词改写查询） | **100%** |
+| MRR / nDCG@3（改写查询） | 0.9333 / 0.9508 |
+| 答案领域术语覆盖率 | 70.07% |
+| 平均检索耗时（含高亮定位） | 0.5 ms |
+| 索引构建耗时 | 0.06 s |
+| 单元测试 | 59 项全部通过 |
+
+> 评测口径：`src/pure_rag/evaluator.py` 用 QA 对的问题检索包含该 QA 对的文档块（自召回），
+> 再把问题改写为同义词表达（齿轮箱 → 变速箱、桨叶、刹车）或关键词查询后重测，无需人工标注即可复现。
+
+### 核心实现
+
+- **BM25**：`score(q,d) = Σ_t IDF(t)·tf·(k1+1) / (tf + k1·(1-b+b·|d|/avgdl))`，IDF 采用平滑式 `ln(1+(N-df+0.5)/(df+0.5))`，检索时只遍历查询词命中的文档
+- **TF-IDF**：亚线性词频 `1+ln(tf)`，平滑 IDF `ln((1+N)/(1+df))+1`，文档向量 L2 归一化后点积即余弦相似度
+- **自适应 α**：按查询特征预测融合权重（标准编号 0.3 / 数值规格 0.4 / 术语密集 0.5 / 维护操作 0.6 / 故障诊断 0.7 / 性能优化 0.75 / 系统原理 0.8）
+- **多路召回**：同义词与关键词变体查询各召回一路，经 RRF 合并后按 0.3 权重加回主结果
+- **MMR 重排**：`λ·相关性 − (1−λ)·与已选文档的最大相似度`，抑制重复内容
+- **新词发现**：词频 + 互信息 + 左右邻接熵的无监督筛选，自动扩充领域词典并随索引持久化
+- **同义词打通**：查询侧别名→标准词扩展 + 索引侧标准词→别名扩展，配合最大匹配分词，"变速箱"与"齿轮箱"可直接互相命中
+- **答案生成**：句子级 IDF 加权打分 + 结构化字段加成 + 近似去重 + 相关性下限过滤，输出带来源标注的要点
+- **命中高亮**：逐字符归一化（长度不变）后用 `str.find` 定位，得到可映射回原文的字符区间，再渲染成 ANSI / `<mark>` / Markdown 三种载体
+- **增量追加**：词序列随索引持久化，新增文档只需分块分词自己，再重建 BM25/TF-IDF 的统计结构（IDF 依赖全局 df，无法局部更新）
+- **可解释性**：`explain` 输出每个查询词在两路召回上的独立贡献，便于定位"为什么这篇文档排第一"
+- **参数调优**：`tune` 在自召回 + 改写查询两组指标上做网格搜索，结果写入 `tuning.json` 并自动生效
+
+---
+
+## 🚀 快速开始（完整研究版）
+
+> 若只想跑通问答，直接用上面的零依赖版即可；以下流程需要安装 10+ 个第三方包。
 
 ### 环境要求
 
@@ -186,22 +281,47 @@ print(result["answer"])
 ```
 WindRAG/
 ├── src/                          # 核心源码
-│   ├── run_rag.py                # RAG系统主程序
+│   ├── run_rag.py                # RAG系统主程序（研究版）
 │   ├── data_processing.py        # 数据预处理
 │   ├── build_index.py            # 索引构建（向量+BM25）
 │   ├── knowledge_graph.py        # 知识图谱构建与查询
 │   ├── model_manager.py          # 线程安全模型池管理
-│   ├── adaptive_fusion.py        # 自适应检索融合
+│   ├── adaptive_fusion.py        # 自适应检索融合（MLP）
 │   ├── query_features.py         # 查询特征提取
+│   ├── generate_training_data.py  # 生成融合训练数据
 │   ├── evaluation.py             # 评估模块
 │   ├── system_validation.py      # 系统验证
 │   ├── ablation_experiment.py    # 消融实验
 │   ├── gradio_app.py             # Web界面
-│   └── query_models.py           # 模型可用性查询
+│   ├── interactive_rag.py        # 交互式命令行问答
+│   ├── test_rag.py               # 检索/系统测试
+│   ├── query_models.py           # 模型可用性查询
+│   ├── rag_cli.py                # 纯 Python 版命令行入口
+│   └── pure_rag/                 # 零依赖纯 Python 检索内核
+│       ├── text_utils.py         # 分词、新词发现、句子切分、同义词
+│       ├── query_analysis.py     # 问题分类、自适应 α、查询扩展
+│       ├── bm25.py               # 手写 Okapi BM25
+│       ├── tfidf.py              # 手写 TF-IDF 稀疏向量索引
+│       ├── chunker.py            # 结构感知分块（带重叠）
+│       ├── loader.py             # 数据加载 + 自有文档导入（txt/md/json/csv/docx）
+│       ├── fusion.py             # 加权融合 / RRF / MMR
+│       ├── kg.py                 # 知识图谱检索增强
+│       ├── generator.py          # 抽取式生成 + 可选 LLM
+│       ├── highlight.py          # 命中高亮渲染（ANSI / HTML / Markdown）
+│       ├── evaluator.py          # 自召回 + 改写查询鲁棒性评测
+│       ├── tuner.py              # 超参数网格搜索
+│       ├── env.py                # 极简 .env 加载器
+│       ├── server.py             # 零依赖 Web 界面
+│       ├── engine.py             # RAGEngine 主引擎（含增量追加）
+│       └── cli.py                # 命令行子命令
+├── tests/
+│   └── test_pure_rag.py          # 纯 Python 内核单元测试（59 项）
 ├── data/                         # 数据目录
 │   ├── raw/                      # 原始数据
 │   ├── synthetic/                # 合成数据
-│   └── processed/                # 处理后数据+索引
+│   ├── user_docs/                # 自有文档（txt/md/json/csv/docx，自动纳入索引）
+│   ├── processed/                # 处理后数据+索引（研究版）
+│   └── pure_index/               # 纯 Python 版索引 + 调优参数（可重新生成）
 ├── docs/                         # 文档与图片
 │   └── images/                   # 科研绘图
 ├── config.env                    # 环境配置
